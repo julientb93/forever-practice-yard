@@ -1,6 +1,9 @@
 // Straw training dummy on a post, built in code. It wobbles when hit.
 import * as THREE from 'three';
 
+/** A party member's dummy wears a tabard colour for its role; the enemy keeps the burlap. */
+const ROLE_CLOTH: Record<string, number> = { tank: 0x8a8f99, melee: 0x9a6a4a, ranged: 0x4a6ea0, healer: 0xd8d0b0 };
+
 export class Dummy {
   readonly root = new THREE.Group();
   /** Meshes for click picking. */
@@ -11,9 +14,9 @@ export class Dummy {
   private wobbleVel = 0;
   private wobbleAxis = new THREE.Vector3(1, 0, 0);
 
-  constructor() {
+  constructor(opts: { friendly?: boolean; role?: string } = {}) {
     const wood = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.9, flatShading: true });
-    const burlap = new THREE.MeshStandardMaterial({ color: 0xb79a6b, roughness: 1, flatShading: true });
+    const burlap = new THREE.MeshStandardMaterial({ color: opts.friendly ? ROLE_CLOTH[opts.role ?? ''] ?? 0x9aa0a8 : 0xb79a6b, roughness: 1, flatShading: true });
     const rope = new THREE.MeshStandardMaterial({ color: 0x7a5f3b, roughness: 1 });
     const straw = new THREE.MeshStandardMaterial({ color: 0xd6b45c, roughness: 1, flatShading: true });
     const paint = new THREE.MeshStandardMaterial({ color: 0x8e2222, roughness: 0.9 });
@@ -84,10 +87,10 @@ export class Dummy {
 
     this.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) this.pickables.push(o); });
 
-    // Selection ring on the ground, red for an enemy.
+    // Selection ring on the ground, red for an enemy, green for a party member.
     this.ring = new THREE.Mesh(
       new THREE.RingGeometry(0.62, 0.72, 40),
-      new THREE.MeshBasicMaterial({ color: 0xd8321e, transparent: true, opacity: 0.85, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color: opts.friendly ? 0x3ac85a : 0xd8321e, transparent: true, opacity: 0.85, depthWrite: false }),
     );
     this.ring.rotation.x = -Math.PI / 2;
     this.ring.position.y = 0.03;

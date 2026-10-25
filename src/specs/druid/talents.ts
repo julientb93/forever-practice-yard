@@ -3,7 +3,7 @@
 // See research/druid_forever.md → Talents and Builds.
 import type { Binding, Stats } from '../../engine/types';
 import { decodeTalents, talentSplit, talentSummary } from '../common';
-import { BALANCE_STATS, BEAR_STATS, CAT_STATS } from './data';
+import { BALANCE_STATS, BEAR_STATS, CAT_STATS, RESTO_STATS } from './data';
 
 const TREES = [
   ['improvedWrath', 'genesis', 'moonglow', 'improvedMoonfire', 'naturesMajesty', 'naturesReach', 'improvedEntanglingRoots',
@@ -39,7 +39,7 @@ const NEW_IN_FOREVER = new Set<TalentKey>(['genesis', 'naturesMajesty', 'natures
   'primalBite', 'improvedShiftingPower', 'naturalInstinct', 'naturalReaction', 'rendAndTear', 'berserk', 'giftOfTheEarthmother',
   'livingSpirit', 'wildGrowth']);
 
-export type DruidSpec = 'cat' | 'bear' | 'balance';
+export type DruidSpec = 'cat' | 'bear' | 'balance' | 'resto';
 
 export interface Build {
   id: string;
@@ -62,8 +62,14 @@ const BEAR_BAR = bar(['primalBite', 'lacerate', 'maul', 'swipe', 'demoralizingRo
 const BALANCE_BAR = bar(['wrath', 'starfire', 'moonfire', 'insectSwarm', 'faerieFire', 'innervate', 'moonkinForm', 'barkskin',
   'manaPotion', null, null, null, null, null, null, null]);
 
+const RESTO_BAR = bar(['rejuvenation', 'regrowth', 'healingTouch', 'swiftmend', 'wildGrowth', 'naturesSwiftness', 'innervate', 'tranquility',
+  'barkskin', 'manaPotion', null, null, null, null, null, null]);
+
 const GS = 'gunba/wow-forever-sim';
 export const BUILDS: Build[] = [
+  // Healers: our proposals (foreversim's Restoration test string is on an older tree and does not decode).
+  { id: 'resto', spec: 'resto', name: 'Restoration', talentString: '05302001--5050035153113251', stats: RESTO_STATS, bar: RESTO_BAR },
+  { id: 'resto-balance', spec: 'resto', name: 'Restoration, Balance dip', talentString: '55302001103--5050035103113031', stats: RESTO_STATS, bar: RESTO_BAR },
   { id: 'cat', spec: 'cat', name: 'Feral Cat', talentString: '05002-45010032021032212051-055', stats: CAT_STATS, bar: CAT_BAR },
   { id: 'cat-feral', spec: 'cat', name: 'Feral, deeper (Natural Shapeshifter)', talentString: '-55210032021132212051-05503', stats: CAT_STATS, bar: CAT_BAR },
   { id: 'bear', spec: 'bear', name: 'Bear tank', talentString: '01-50022332120132012551-055', stats: BEAR_STATS, bar: BEAR_BAR, tank: true },
@@ -72,7 +78,7 @@ export const BUILDS: Build[] = [
 ];
 
 export const buildsFor = (spec: DruidSpec) => BUILDS.filter((b) => b.spec === spec);
-export const buildLabel = (b: Build) => `${b.name} ${talentSplit(b.talentString)} (${GS})`;
+export const buildLabel = (b: Build) => `${b.name} ${talentSplit(b.talentString)} (${b.spec === 'resto' ? 'our proposal' : GS})`;
 
 const cache = new Map<string, Talents>();
 export function buildById(id: unknown, spec: DruidSpec): Build {

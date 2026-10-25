@@ -1,0 +1,3386 @@
+{
+  "meta": {
+    "title": "Healing data sheet for WoW Forever (level 60): Priest Holy and Discipline, Druid Restoration, Shaman Restoration, Paladin Holy",
+    "generated": "2026-10-25",
+    "language": "en",
+    "scope": "Every healing spell the five healing specs use in the practice yard, with cost, cast time, cooldown, base healing, variance and healing power coefficient from the Forever beta client rows; the healing rules the yard applies (crit, overhealing, heals over time, shields, the five-second rule); the talents each spec models with their values; the builds; the priority lists (the yellow glow and the cue); the party and the incoming damage model; default stats; and what is uncertain. Damage, tanking and the DPS hybrids are in the class sheets.",
+    "howToRead": "Every number is an object {value, unit, source, confidence, note}. 'source' is the client table, a Wowhead Forever tooltip URL, a GitHub permalink (repo@commit/path) or 'ours'. 'confidence' is one of the three values in confidenceLegend.",
+    "confidenceLegend": {
+      "confirmed-forever": "Stated by the Forever beta client rows (build 1.60.1.70450, read through wago.tools) or a Wowhead Forever tooltip read on 25 Oct 2026, or both.",
+      "sim-provisional": "A modelling choice of ours or of a sim with no Forever source yet, or a value where the sources disagree. Use it, but expect it to change.",
+      "classic-fallback": "Forever data is silent, so the Classic 1.12 rule is kept."
+    },
+    "simsCompared": {
+      "gs": "gunba/wow-forever-sim (branch 'forever'), commit bb5811b3af (24 Oct 2026). Its talent trees (ui/core/talents/trees) are the layout the yard draws. Its priest healing spec (sim/priest/healing) is the wowsims/classic stub: the heals are commented-out WotLK numbers, and its Disc and Holy test strings predate the Oct 15 trees. No healer APL.",
+      "fs": "laurencestokes/foreversim (branch 'master'), commit 10205cb9bc (22 Oct 2026). Registers healer specs for priest (sim/priest/healer), druid (sim/druid/restoration), paladin (sim/paladin/holy) and shaman (sim/shaman/restoration) on the client rows: priest heals, Power Word: Shield with Weakened Soul, Renewed Hope, Divine Aegis, Litany of Light, Inspiration, Prayer of Mending jumps, Holy Light, Flash of Light, Holy Shock, Divine Favor, Illumination, Infusion of Light, Light's Vigil, Water Shield, Mana Tide and Nature's Swiftness are modelled; the druid healing talents, Riptide and the shaman heals (sim/shaman/_heals.go, WotLK numbers) are TODO or disabled. No healer APL; its test talent strings are on older tree shapes (only the Disc preset decodes on the current trees)."
+    },
+    "practiceYardSummary": [
+      "Heals never miss and crit for 1.5x; the crit chance is the spell crit on the sheet plus the healing talents. Ticks of heals over time re-read healing power and can crit (the sims roll heal crits on ticks; provisional).",
+      "Healing power is the one spell power number Forever gear carries, plus Spiritual Guidance (priest). What the target was not missing is overhealing; a shield counts in full.",
+      "The dummy hurts your party: a tank in melee (6,500 health), a rogue, a mage and a hunter (3,800 each) and you. Blows on the tank every 2.5 s for 600 (after armor): steady, spiky (15% crits x2, 20% crushing x1.5) or raid-style (softer blows, splashes, a blast on everyone every 15 s). One healer sustains about 200 healing per second over minutes before the mana runs out.",
+      "No healing meter: the panel counts heals and crits per spell, overhealing, heals on a full target, the time the tank spent under 40%, deaths, Spirit regeneration time and the time without mana for your main heal.",
+      "Season of Discovery rows sit in the client (Lifebloom, Nourish, Circle of Healing, Pain Suppression, Earth Shield, Sacred Shield, Beacon of Light): Wowhead prints them at \"Requires level 1\" with rune-style scaling and no trainer rank, so the yard leaves them out."
+    ]
+  },
+  "sources": [
+    {
+      "id": "client",
+      "name": "Forever beta client DB2 tables",
+      "url": "https://wago.tools/db2/SpellEffect?build=1.60.1.70450",
+      "note": "Local extract: /Applications/World of Warcraft/_classic_beta_/ClassScaling/db2 (SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellName, SkillLineAbility, SkillLine, SpellClassOptions, PlayerExpectedStat, ChrClasses) plus SpellCooldowns, SpellRange, SpellAuraOptions, SpellTargetRestrictions, Spell and Talent fetched from wago.tools for the same build. The Talent table still holds the Classic trees (Improved Mark of the Wild, Lightwell, Force of Will): the Forever trees come from gs."
+    },
+    {
+      "id": "wowhead",
+      "name": "Wowhead Forever tooltips",
+      "url": "https://nether.wowhead.com/forever/tooltip/spell/",
+      "note": "Read 25 Oct 2026 for 21 ids. Level-60 tooltips print a few percent under the client row for Holy Light (1524-1694 vs 1580-1749) and Chain Heal (474-539 vs 490-555); the sims use the rows."
+    },
+    {
+      "id": "gs",
+      "name": "gunba/wow-forever-sim",
+      "url": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/",
+      "license": "MIT"
+    },
+    {
+      "id": "fs",
+      "name": "laurencestokes/foreversim",
+      "url": "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/",
+      "license": "MIT"
+    },
+    {
+      "id": "ours",
+      "name": "This practice yard",
+      "url": "https://github.com/julientb93/forever-practice-yard/tree/healing-specs",
+      "note": "src/engine/combat.ts (party, heals, overhealing), src/specs/healing.ts (heal rolls, hints, review), src/specs/<class>/*.ts"
+    }
+  ],
+  "rules": {
+    "healingPower": {
+      "value": "spell power from gear (one number in Forever) + flat talent bonuses (Spiritual Guidance: a share of Spirit)",
+      "unit": "rule",
+      "source": [
+        "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/core/spell_result.go#L315",
+        "ours"
+      ],
+      "confidence": "sim-provisional",
+      "note": "fs keeps a separate HealingPower stat; Forever gear in the sims carries one spell power value, so the yard reads it as healing power."
+    },
+    "healCrit": {
+      "multiplier": {
+        "value": 1.5,
+        "unit": "x",
+        "source": [
+          "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/core/spell_outcome.go#L141",
+          "Classic 1.12"
+        ],
+        "confidence": "classic-fallback",
+        "note": "fs applies the default spell crit multiplier to heals."
+      },
+      "chance": {
+        "value": "spell crit on the sheet + talents (Holy Specialization, Tidal Mastery, Holy Power, Improved Regrowth, Nature's Majesty, Thundering Strikes) + auras (Moonkin Aura)",
+        "unit": "rule",
+        "source": "ours",
+        "confidence": "sim-provisional"
+      },
+      "baseSpellCrit": {
+        "value": {
+          "priest": 0.8,
+          "druid": 1.8,
+          "shaman": 2.3,
+          "paladin": 3.5
+        },
+        "unit": "% at level 60 before Intellect",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/sim/core/base_stats.go#L94",
+        "confidence": "sim-provisional"
+      },
+      "critPerIntellect": {
+        "value": {
+          "priest": 0.000168,
+          "druid": 0.000167,
+          "shaman": 0.000169,
+          "paladin": 0.000167
+        },
+        "unit": "crit chance per point of Intellect (x100 for %)",
+        "source": [
+          "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) PlayerExpectedStat.SpellCritPerIntellect (level 60)",
+          "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/sim/core/base_stats.go#L182"
+        ],
+        "confidence": "confirmed-forever",
+        "note": "about 60 Intellect per 1% spell crit; gs and the client agree"
+      },
+      "ticks": {
+        "value": "heal over time ticks roll a crit like a direct heal",
+        "unit": "rule",
+        "source": "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/priest/renew.go",
+        "confidence": "sim-provisional",
+        "note": "OutcomeTickHealingCrit in fs; no Forever log confirms it"
+      }
+    },
+    "noMiss": {
+      "value": "heals cannot miss or be resisted",
+      "unit": "rule",
+      "source": "Classic 1.12",
+      "confidence": "classic-fallback"
+    },
+    "overhealing": {
+      "value": "healing beyond the target's missing health is overhealing; the yard counts it per spell and in total; a shield (Power Word: Shield, Divine Aegis) counts in full",
+      "unit": "rule",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    },
+    "hotRefresh": {
+      "value": "recasting a heal over time restarts it (the pending tick is lost)",
+      "unit": "rule",
+      "source": "Classic 1.12",
+      "confidence": "classic-fallback"
+    },
+    "hotSnapshot": {
+      "value": "ticks re-read healing power each tick (no snapshot)",
+      "unit": "rule",
+      "source": [
+        "research/priest_forever.md (DoTs are dynamic in Forever)",
+        "ours"
+      ],
+      "confidence": "sim-provisional"
+    },
+    "gcd": {
+      "value": "1.5 s on every heal, shorter with casting haste down to 1.0 s; Gift of the Earthmother puts Rejuvenation, Swiftmend and Wild Growth at 1.0 s; totems 1.0 s; Inner Focus, Divine Favor, Nature's Swiftness, Power Infusion are off the global cooldown",
+      "unit": "rule",
+      "source": [
+        "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns.StartRecoveryTime",
+        "gs CORE-004"
+      ],
+      "confidence": "confirmed-forever"
+    },
+    "fiveSecondRule": {
+      "value": "Spirit regeneration (6.25 + Spirit/8 per second) stops for 5 s after a spell costs mana; Meditation, Reflection, Mindfulness and Reverence keep a share while casting; MP5 counts always; Innervate x5 and all of it",
+      "unit": "rule",
+      "source": [
+        "research/priest_forever.md (gs common formula)",
+        "ours"
+      ],
+      "confidence": "sim-provisional"
+    },
+    "baseMana": {
+      "value": {
+        "priest": 1376,
+        "druid": 1244,
+        "shaman": 1520,
+        "paladin": 1512
+      },
+      "unit": "mana at level 60 before Intellect",
+      "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) PlayerExpectedStat.BaseMana (level 60)",
+      "confidence": "confirmed-forever",
+      "note": "15 mana per Intellect on top (classic-fallback); percentage costs (Swiftmend 20%, Divine Favor 4%, Power Infusion 20%) read these"
+    },
+    "manaOnHit": {
+      "value": "Judgement of Wisdom gives nothing to a healer who casts no damage spell",
+      "unit": "rule",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    }
+  },
+  "party": {
+    "members": {
+      "value": [
+        {
+          "name": "Tank",
+          "role": "tank",
+          "health": 6500
+        },
+        {
+          "name": "Rogue",
+          "role": "melee",
+          "health": 3800
+        },
+        {
+          "name": "Mage",
+          "role": "ranged",
+          "health": 3800
+        },
+        {
+          "name": "Hunter",
+          "role": "ranged",
+          "health": 3800
+        },
+        {
+          "name": "You",
+          "role": "healer",
+          "health": "your sheet"
+        }
+      ],
+      "unit": "party",
+      "source": "ours",
+      "confidence": "sim-provisional",
+      "note": "Level 60 raid-buffed guesses; Settings changes the tank's and the others' health."
+    },
+    "blow": {
+      "value": 600,
+      "unit": "damage per blow on the tank after armor, every 2.5 s",
+      "source": "ours",
+      "confidence": "sim-provisional",
+      "note": "Sized so that one healer sustains it for a couple of minutes before the mana runs out (about 200 healing per second sustained): raise it for a sprint, lower it to learn the rhythm."
+    },
+    "profiles": {
+      "value": {
+        "steady": "the blow x U(0.9, 1.1)",
+        "spiky": "the blow x U(0.85, 1.15) with 15% crits (x2) and 20% crushing blows (x1.5)",
+        "raid": "the blow x 0.6 on the tank (12% crushing), a splash of 0.4 x the blow on a random member 40% of the time, and a blast of 0.45 x the blow on everyone (you too) every 15 s"
+      },
+      "unit": "profile",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    },
+    "death": {
+      "value": 6,
+      "unit": "s until a dead party member is back on their feet (counted as a death)",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    },
+    "targeting": {
+      "value": "heals land on your target if it is a party member, else on you; F1 targets you, F2 to F5 the party; click a party member or their dummy",
+      "unit": "rule",
+      "source": "WoW self-cast",
+      "confidence": "classic-fallback"
+    }
+  },
+  "abilities": {
+    "priest": [
+      {
+        "key": "flashHeal",
+        "name": "Flash Heal",
+        "spellId": 10917,
+        "icon": "spell_holy_flashheal",
+        "rank": "Rank 7 (56)",
+        "school": "holy",
+        "cost": {
+          "value": 380,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/10917"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 1.5,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/10917"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/10917"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 825,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.165,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.429,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "The quick heal. Last rank at 60 (ids 1232758 and 1236153 are unused rows)."
+      },
+      {
+        "key": "greaterHeal",
+        "name": "Greater Heal",
+        "spellId": 25314,
+        "icon": "spell_holy_greaterheal",
+        "rank": "Rank 5 (60)",
+        "school": "holy",
+        "cost": {
+          "value": 710,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/25314"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 3.0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/25314"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/25314"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 1960,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.11,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.857,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Divine Fury -0.1 s per point (2.5 s at 5/5); Improved Healing -5% cost per point."
+      },
+      {
+        "key": "renew",
+        "name": "Renew",
+        "spellId": 25315,
+        "icon": "spell_holy_renew",
+        "rank": "Rank 10 (60)",
+        "school": "holy",
+        "cost": {
+          "value": 410,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/25315"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/25315"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/25315"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "tick": {
+            "value": 166,
+            "unit": "healing per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever"
+          },
+          "tickCoefficient": {
+            "value": 0.2,
+            "unit": "x healing power per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "ticks": {
+            "value": 5,
+            "unit": "ticks",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration / EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          },
+          "period": {
+            "value": 3,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "A second rank-10 row, 425277 (194 per tick at 0.23, AcquireMethod 3), sits in the Holy skill line; fs's Renew ladder and Wowhead's trained rank use 25315. Open question."
+      },
+      {
+        "key": "prayerOfHealing",
+        "name": "Prayer of Healing",
+        "spellId": 25316,
+        "icon": "spell_holy_prayerofhealing",
+        "rank": "Rank 5 (60)",
+        "school": "holy",
+        "cost": {
+          "value": 1070,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/25316"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 3.0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/25316"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/25316"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 649,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.054,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.286,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "One roll per party member."
+      },
+      {
+        "key": "prayerOfMending",
+        "name": "Prayer of Mending",
+        "spellId": 1240827,
+        "icon": "spell_holy_prayerofmendingtga",
+        "rank": "Rank 3 (60), Holy 31-point talent",
+        "school": "holy",
+        "cost": {
+          "value": 390,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/1240827"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/1240827"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 10,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/1240827"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 413,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "the heal when the bearer is hurt; then it jumps"
+          },
+          "variance": {
+            "value": 0,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.429,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Jumps up to 5 times (aura 401877: 5 charges, 30 s each, 20 yd). The yard jumps to the most hurt other member. Improved Healing and Mental Agility lower the cost.",
+        "jumps": {
+          "value": 5,
+          "unit": "jumps",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellAuraOptions 401877 CumulativeAura",
+            "https://nether.wowhead.com/forever/tooltip/spell/1240827"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "duration": {
+          "value": 30,
+          "unit": "s per jump",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration 401877",
+          "confidence": "confirmed-forever"
+        }
+      },
+      {
+        "key": "powerWordShield",
+        "name": "Power Word: Shield",
+        "spellId": 10901,
+        "icon": "spell_holy_powerwordshield",
+        "rank": "Rank 10 (60)",
+        "school": "holy",
+        "cost": {
+          "value": 500,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/10901"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/10901"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 4,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/10901"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "absorb": {
+            "value": 928,
+            "unit": "damage absorbed",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect (SchoolAbsorb)",
+              "https://nether.wowhead.com/forever/tooltip/spell/10901 prints 950"
+            ],
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.1,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "duration": {
+            "value": 30,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+            "confidence": "confirmed-forever"
+          },
+          "weakenedSoul": {
+            "value": 15,
+            "unit": "s",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration 6788",
+              "https://nether.wowhead.com/forever/tooltip/spell/10901"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Improved Power Word: Shield +7/14/20%; Soul Warding: no cooldown, -15% cost; Twin Disciplines +1% per point. A shield never overheals."
+      },
+      {
+        "key": "penance",
+        "name": "Penance (heal)",
+        "spellId": 1316995,
+        "icon": "spell_holy_penance",
+        "rank": "Rank 4 (60), Discipline 21-point talent",
+        "school": "holy",
+        "cost": {
+          "value": 385,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/1316995"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/1316995"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 12,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/1316995"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 36,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 425,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "per bolt, 3 bolts at 0, 1 and 2 s (row 1316991)"
+          },
+          "variance": {
+            "value": 0,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.19,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Each bolt rolls its own crit; Improved Healing -5% cost per point."
+      },
+      {
+        "key": "bindingHeal",
+        "name": "Binding Heal",
+        "spellId": 1240774,
+        "icon": "spell_holy_blindingheal",
+        "rank": "Rank 6 (56), Holy talent",
+        "school": "holy",
+        "cost": {
+          "value": 380,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/1240774"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 1.5,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/1240774"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/1240774"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 825,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "on the target and on you"
+          },
+          "variance": {
+            "value": 0.165,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.429,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Low threat."
+      },
+      {
+        "key": "holyNova",
+        "name": "Holy Nova (heal)",
+        "spellId": 27801,
+        "icon": "spell_holy_holynova",
+        "rank": "Rank 6 (60), Holy talent",
+        "school": "holy",
+        "cost": {
+          "value": 750,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/27801"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/27801"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/27801"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 10,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 311,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "per party member within 10 yd (row 27805)"
+          },
+          "variance": {
+            "value": 0.147,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.107,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "The yard heals the party; the damage half is in the Smite sheet."
+      },
+      {
+        "key": "desperatePrayer",
+        "name": "Desperate Prayer",
+        "spellId": 19243,
+        "icon": "spell_holy_restoration",
+        "rank": "Rank 7 (58)",
+        "school": "holy",
+        "cost": {
+          "value": 0,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/19243"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/19243"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 600,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/19243"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 1383,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "on you"
+          },
+          "variance": {
+            "value": 0.165,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.429,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "In the Holy skill line for every priest in the client; Classic gave it to Dwarves and Humans only. Provisional."
+      },
+      {
+        "key": "innerFocus",
+        "name": "Inner Focus",
+        "spellId": 14751,
+        "icon": "spell_frost_windwalkon",
+        "rank": "Discipline talent",
+        "school": "none",
+        "cost": {
+          "value": 0,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/14751"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/14751"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 180,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/14751"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "effect": {
+            "value": "next spell free; +25% crit if it is not periodic",
+            "unit": "rule",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/14751"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Off the global cooldown."
+      },
+      {
+        "key": "powerInfusion",
+        "name": "Power Infusion",
+        "spellId": 10060,
+        "icon": "spell_holy_powerinfusion",
+        "rank": "Discipline 31-point talent",
+        "school": "holy",
+        "cost": {
+          "value": 275,
+          "unit": "mana (20% of base)",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/10060"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/10060"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 180,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/10060"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 30,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "effect": {
+            "value": 1.2,
+            "unit": "x healing (and damage) for 15 s",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/10060"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Cast on yourself in the yard."
+      }
+    ],
+    "druid": [
+      {
+        "key": "healingTouch",
+        "name": "Healing Touch",
+        "spellId": 25297,
+        "icon": "spell_nature_healingtouch",
+        "rank": "Rank 11 (60)",
+        "school": "nature",
+        "cost": {
+          "value": 840,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/25297"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 3.5,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/25297"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/25297"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 2332,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.166,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 1.0,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Naturalist -0.1 s per point (3.0 s at 5/5), Tranquil Spirit -2% cost per point, instant with Nature's Swiftness. Coefficient 1.0 on every rank from 5 up (the Classic 3.5 s / 3.5 rule)."
+      },
+      {
+        "key": "rejuvenation",
+        "name": "Rejuvenation",
+        "spellId": 25299,
+        "icon": "spell_nature_rejuvenation",
+        "rank": "Rank 11 (60)",
+        "school": "nature",
+        "cost": {
+          "value": 360,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/25299"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/25299"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/25299"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "tick": {
+            "value": 194,
+            "unit": "healing per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever"
+          },
+          "tickCoefficient": {
+            "value": 0.2,
+            "unit": "x healing power per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "ticks": {
+            "value": 4,
+            "unit": "ticks",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration / EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          },
+          "period": {
+            "value": 3,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Improved Rejuvenation +5% per point; Nature's Splendor +3 s (one tick); Gift of the Earthmother: 1.0 s global cooldown."
+      },
+      {
+        "key": "regrowth",
+        "name": "Regrowth",
+        "spellId": 9858,
+        "icon": "spell_nature_resistnature",
+        "rank": "Rank 9 (60)",
+        "school": "nature",
+        "cost": {
+          "value": 525,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/9858"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 2.0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/9858"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/9858"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 1021,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.109,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.286,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "tick": {
+            "value": 142,
+            "unit": "healing per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever"
+          },
+          "tickCoefficient": {
+            "value": 0.071,
+            "unit": "x healing power per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "ticks": {
+            "value": 7,
+            "unit": "ticks",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration / EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          },
+          "period": {
+            "value": 3,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Improved Regrowth +10% crit per point on the direct heal; Nature's Splendor +6 s (two ticks)."
+      },
+      {
+        "key": "swiftmend",
+        "name": "Swiftmend",
+        "spellId": 18562,
+        "icon": "inv_relics_idolofrejuvenation",
+        "rank": "Restoration talent",
+        "school": "nature",
+        "cost": {
+          "value": 249,
+          "unit": "mana (20% of base 1244)",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/18562"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/18562"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 15,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/18562"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "effect": {
+            "value": "consumes your Regrowth (first) or Rejuvenation on the target and heals for the full duration of its ticks at once",
+            "unit": "rule",
+            "source": [
+              "https://nether.wowhead.com/forever/tooltip/spell/18562",
+              "ours for the order"
+            ],
+            "confidence": "sim-provisional"
+          }
+        },
+        "notes": "Which heal over time goes first when both are up is our choice (Classic consumed Regrowth first)."
+      },
+      {
+        "key": "wildGrowth",
+        "name": "Wild Growth",
+        "spellId": 1238215,
+        "icon": "ability_druid_flourish",
+        "rank": "Rank 3 (60), Restoration 31-point talent",
+        "school": "nature",
+        "cost": {
+          "value": 1050,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/1238215"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/1238215"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 6,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/1238215"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "tick": {
+            "value": 97,
+            "unit": "healing per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "per party member; \"applied quickly at first, slower at the end\""
+          },
+          "tickCoefficient": {
+            "value": 0.033,
+            "unit": "x healing power per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "ticks": {
+            "value": 7,
+            "unit": "ticks",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration / EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          },
+          "period": {
+            "value": 1,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "The yard shapes the ticks 1.4x down to 0.6x for the same total (ours). Wowhead: 769 over 7 s at 60.",
+        "shape": {
+          "value": "tick n = 1.4 - 0.8 x (n - 1) / 6",
+          "unit": "rule",
+          "source": "ours",
+          "confidence": "sim-provisional"
+        }
+      },
+      {
+        "key": "tranquility",
+        "name": "Tranquility",
+        "spellId": 9863,
+        "icon": "spell_nature_tranquility",
+        "rank": "Rank 4 (60)",
+        "school": "nature",
+        "cost": {
+          "value": 925,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/9863"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/9863"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 300,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/9863"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "tick": {
+            "value": 285,
+            "unit": "healing per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "per party member, a 10 s channel"
+          },
+          "tickCoefficient": {
+            "value": 0.067,
+            "unit": "x healing power per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "ticks": {
+            "value": 5,
+            "unit": "ticks",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration / EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          },
+          "period": {
+            "value": 2,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Improved Tranquility -30/60% cooldown; Tranquil Spirit -2% cost per point."
+      },
+      {
+        "key": "naturesSwiftness",
+        "name": "Nature's Swiftness",
+        "spellId": 17116,
+        "icon": "spell_nature_ravenform",
+        "rank": "Restoration talent",
+        "school": "none",
+        "cost": {
+          "value": 0,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/17116"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/17116"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 180,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/17116"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "effect": {
+            "value": "next Nature spell instant",
+            "unit": "rule",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/17116"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Healing Touch or Regrowth in the yard."
+      },
+      {
+        "key": "innervate",
+        "name": "Innervate",
+        "spellId": 29166,
+        "icon": "spell_nature_lightning",
+        "rank": "(40)",
+        "school": "nature",
+        "cost": {
+          "value": 62,
+          "unit": "mana (5% of base)",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/29166"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/29166"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 360,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/29166"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 30,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "effect": {
+            "value": "+400% mana regeneration and 100% of it while casting, 20 s",
+            "unit": "rule",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/29166"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "As in the Balance sheet."
+      }
+    ],
+    "shaman": [
+      {
+        "key": "healingWave",
+        "name": "Healing Wave",
+        "spellId": 25357,
+        "icon": "spell_nature_magicimmunity",
+        "rank": "Rank 10 (60)",
+        "school": "nature",
+        "cost": {
+          "value": 620,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/25357"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 3.0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/25357"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/25357"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 1615,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.133,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.857,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Improved Healing Wave -0.1 s per point (2.5 s at 5/5); Healing Way +8/17/25%; Tidal Focus -1% cost per point."
+      },
+      {
+        "key": "lesserHealingWave",
+        "name": "Lesser Healing Wave",
+        "spellId": 10468,
+        "icon": "spell_nature_healingwavelesser",
+        "rank": "Rank 6 (60)",
+        "school": "nature",
+        "cost": {
+          "value": 380,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/10468"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 1.5,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/10468"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/10468"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 820,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.109,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.429,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": ""
+      },
+      {
+        "key": "chainHeal",
+        "name": "Chain Heal",
+        "spellId": 10623,
+        "icon": "spell_nature_healingwavegreater",
+        "rank": "Rank 3 (54, the last rank)",
+        "school": "nature",
+        "cost": {
+          "value": 405,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/10623"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 2.5,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/10623"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/10623"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 490,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.132,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.714,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Jumps to two more targets at 50% each (EffectChainTargets 3, ChainAmplitude 0.5); the yard picks the two most hurt other party members. +25% on a target with your Riptide (not consumed: the tooltip says nothing about consuming it; WotLK did).",
+        "jumps": {
+          "value": 2,
+          "unit": "jumps",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectChainTargets",
+          "confidence": "confirmed-forever"
+        },
+        "falloff": {
+          "value": 0.5,
+          "unit": "x per jump",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectChainAmplitude",
+            "https://nether.wowhead.com/forever/tooltip/spell/10623"
+          ],
+          "confidence": "confirmed-forever"
+        }
+      },
+      {
+        "key": "riptide",
+        "name": "Riptide",
+        "spellId": 1239243,
+        "icon": "spell_nature_riptide",
+        "rank": "Rank 3 (60), Restoration 31-point talent",
+        "school": "nature",
+        "cost": {
+          "value": 385,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/1239243"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/1239243"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 6,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/1239243"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 841,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.1,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.214,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "tick": {
+            "value": 161,
+            "unit": "healing per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever"
+          },
+          "tickCoefficient": {
+            "value": 0.1,
+            "unit": "x healing power per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "ticks": {
+            "value": 5,
+            "unit": "ticks",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration / EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          },
+          "period": {
+            "value": 3,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          },
+          "chainHealBonus": {
+            "value": 0.25,
+            "unit": "x Chain Heal on this target",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect e2",
+              "https://nether.wowhead.com/forever/tooltip/spell/1239243"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Wowhead: 838-922 + 953 over 15 s."
+      },
+      {
+        "key": "waterShield",
+        "name": "Water Shield",
+        "spellId": 408510,
+        "icon": "ability_shaman_watershield",
+        "rank": "Restoration talent",
+        "school": "nature",
+        "cost": {
+          "value": 0,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/408510"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/408510"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/408510"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "globes": {
+            "value": 3,
+            "unit": "globes",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellAuraOptions.ProcCharges",
+              "https://nether.wowhead.com/forever/tooltip/spell/408510"
+            ],
+            "confidence": "confirmed-forever"
+          },
+          "mana": {
+            "value": 0.02,
+            "unit": "x maximum mana per globe (row 408511)",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/408510"
+            ],
+            "confidence": "confirmed-forever"
+          },
+          "icd": {
+            "value": 3.5,
+            "unit": "s between globes",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellAuraOptions.ProcCategoryRecovery",
+            "confidence": "confirmed-forever"
+          },
+          "duration": {
+            "value": 600,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "A globe goes on your spell crits or on a hit taken (the raid blast). No cooldown in the client and on Wowhead (the Elemental sheet notes gs's 15 s)."
+      },
+      {
+        "key": "manaTideTotem",
+        "name": "Mana Tide Totem",
+        "spellId": 1325256,
+        "icon": "spell_frost_summonwaterelemental",
+        "rank": "Rank 4 (58), Restoration talent",
+        "school": "nature",
+        "cost": {
+          "value": 60,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/1325256"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/1325256"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 300,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/1325256"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "mana": {
+            "value": 290,
+            "unit": "mana every 3 s for 12 s (row 1325257)",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/1325256"
+            ],
+            "confidence": "confirmed-forever"
+          },
+          "total": {
+            "value": 1160,
+            "unit": "mana",
+            "source": "ours (4 ticks)",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "A Water totem: it replaces Mana Spring (and Healing Stream) for 12 s. Totemic Focus -5% cost per point."
+      },
+      {
+        "key": "healingStreamTotem",
+        "name": "Healing Stream Totem",
+        "spellId": 10463,
+        "icon": "inv_spear_04",
+        "rank": "Rank 5 (60)",
+        "school": "nature",
+        "cost": {
+          "value": 80,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/10463"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/10463"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/10463"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "tick": {
+            "value": 11,
+            "unit": "healing per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "per party member (row 10461), 5 min"
+          },
+          "tickCoefficient": {
+            "value": 0.022,
+            "unit": "x healing power per tick",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          },
+          "ticks": {
+            "value": 150,
+            "unit": "ticks",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration / EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          },
+          "period": {
+            "value": 2,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectAuraPeriod",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Restorative Totems +10% per point. Tiny, but no overhealing worries."
+      },
+      {
+        "key": "manaSpringTotem",
+        "name": "Mana Spring Totem",
+        "spellId": 10497,
+        "icon": "spell_nature_manaregentotem",
+        "rank": "Rank 4 (56)",
+        "school": "nature",
+        "cost": {
+          "value": 100,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/10497"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/10497"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/10497"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "mana": {
+            "value": 10,
+            "unit": "mana every 2 s (row 10494)",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "As in the Elemental sheet; Restorative Totems +5% per point."
+      },
+      {
+        "key": "naturesSwiftness",
+        "name": "Nature's Swiftness",
+        "spellId": 16188,
+        "icon": "spell_nature_ravenform",
+        "rank": "Restoration talent",
+        "school": "none",
+        "cost": {
+          "value": 0,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/16188"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/16188"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 180,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/16188"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "effect": {
+            "value": "next Nature spell under 10 s cast instant",
+            "unit": "rule",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/16188"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": ""
+      }
+    ],
+    "paladin": [
+      {
+        "key": "holyLight",
+        "name": "Holy Light",
+        "spellId": 25292,
+        "icon": "spell_holy_holybolt",
+        "rank": "Rank 9 (60)",
+        "school": "holy",
+        "cost": {
+          "value": 660,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/25292"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 2.5,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/25292"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/25292"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 1580,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.107,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.714,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Healing Light +4% per point; Infusion of Light -0.5 s per point after a Holy Shock or Flash of Light crit; +400 with Blessing of Light. Wowhead prints 1524-1694."
+      },
+      {
+        "key": "flashOfLight",
+        "name": "Flash of Light",
+        "spellId": 19943,
+        "icon": "spell_holy_flashheal",
+        "rank": "Rank 6 (58)",
+        "school": "holy",
+        "cost": {
+          "value": 140,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/19943"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 1.5,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/19943"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/19943"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 303,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "base is the client row's minimum; the maximum is base x (1 + variance); healing power x coefficient on top"
+          },
+          "variance": {
+            "value": 0.11,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.429,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "+115 with Blessing of Light."
+      },
+      {
+        "key": "holyShock",
+        "name": "Holy Shock (heal)",
+        "spellId": 20930,
+        "icon": "spell_holy_searinglight",
+        "rank": "Rank 4 (56), Holy talent",
+        "school": "holy",
+        "cost": {
+          "value": 325,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/20930"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/20930"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 10,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/20930"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "base": {
+            "value": 320,
+            "unit": "healing",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+            "confidence": "confirmed-forever",
+            "note": "the heal row 25903; the damage row 25902 is in the paladin sheet"
+          },
+          "variance": {
+            "value": 0.079,
+            "unit": "fraction of base",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+            "confidence": "confirmed-forever"
+          },
+          "coefficient": {
+            "value": 0.429,
+            "unit": "x healing power",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Holy Power +3% crit per point; Light's Vigil mark: no cooldown and a party heal."
+      },
+      {
+        "key": "lightsVigil",
+        "name": "Light's Vigil",
+        "spellId": 1311595,
+        "icon": "ability_paladin_judgementofthepure",
+        "rank": "Rank 3 (60), Holy 31-point talent",
+        "school": "holy",
+        "cost": {
+          "value": 1340,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/1311595"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 1.5,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/1311595"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 6,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/1311595"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "mark": {
+            "value": 30,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellDuration 1311597",
+            "confidence": "confirmed-forever"
+          },
+          "partyHeal": {
+            "base": {
+              "value": 704,
+              "unit": "healing",
+              "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBasePointsF",
+              "confidence": "confirmed-forever",
+              "note": "per party member (row 1311596) when your Holy Shock lands on the marked ally"
+            },
+            "variance": {
+              "value": 0.056,
+              "unit": "fraction of base",
+              "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.Variance",
+              "confidence": "confirmed-forever"
+            },
+            "coefficient": {
+              "value": 0.143,
+              "unit": "x healing power",
+              "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellEffect.EffectBonusCoefficient",
+              "confidence": "confirmed-forever"
+            }
+          }
+        },
+        "notes": "The enemy side (damage and the 75% refund) is in the paladin sheet; on an ally there is no refund (Wowhead)."
+      },
+      {
+        "key": "divineFavor",
+        "name": "Divine Favor",
+        "spellId": 20216,
+        "icon": "spell_holy_heal",
+        "rank": "Holy talent",
+        "school": "holy",
+        "cost": {
+          "value": 60,
+          "unit": "mana (4% of base)",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/20216"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/20216"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 120,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/20216"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 0,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "effect": {
+            "value": "next Flash of Light, Holy Light or Holy Shock crits",
+            "unit": "rule",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/20216"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "Off the global cooldown."
+      },
+      {
+        "key": "blessingOfLight",
+        "name": "Blessing of Light",
+        "spellId": 19979,
+        "icon": "spell_holy_prayerofhealing02",
+        "rank": "Rank 3 (60)",
+        "school": "holy",
+        "cost": {
+          "value": 135,
+          "unit": "mana",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/19979"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/19979"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/19979"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 30,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "holyLight": {
+            "value": 400,
+            "unit": "extra healing per Holy Light",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/19979"
+            ],
+            "confidence": "confirmed-forever"
+          },
+          "flashOfLight": {
+            "value": 115,
+            "unit": "extra healing per Flash of Light",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/19979"
+            ],
+            "confidence": "confirmed-forever"
+          },
+          "duration": {
+            "value": 3600,
+            "unit": "s",
+            "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": "fs adds the flat bonus before crit, as the yard does."
+      },
+      {
+        "key": "layOnHands",
+        "name": "Lay on Hands",
+        "spellId": 10310,
+        "icon": "spell_holy_layonhands",
+        "rank": "Rank 3 (50)",
+        "school": "holy",
+        "cost": {
+          "value": 0,
+          "unit": "mana (drains all)",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellPower",
+            "https://nether.wowhead.com/forever/tooltip/spell/10310"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "castTime": {
+          "value": 0,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellCastTimes",
+            "https://nether.wowhead.com/forever/tooltip/spell/10310"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "cooldown": {
+          "value": 1200,
+          "unit": "s",
+          "source": [
+            "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellCooldowns",
+            "https://nether.wowhead.com/forever/tooltip/spell/10310"
+          ],
+          "confidence": "confirmed-forever"
+        },
+        "range": {
+          "value": 40,
+          "unit": "yd",
+          "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) SpellMisc/SpellRange",
+          "confidence": "confirmed-forever"
+        },
+        "effect": {
+          "effect": {
+            "value": "heals for your maximum health, +550 mana to the target",
+            "unit": "rule",
+            "source": [
+              "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+              "https://nether.wowhead.com/forever/tooltip/spell/10310"
+            ],
+            "confidence": "confirmed-forever"
+          }
+        },
+        "notes": ""
+      }
+    ]
+  },
+  "talents": {
+    "note": "The trees are gs's (ui/core/talents/trees/<class>.json, the layout the yard draws; checked against commit bb5811b3af on 25 Oct 2026: only Champion of the Light's values changed, 20/40/60% from 10/20/30%). Values below are the ones the yard applies; the client Talent table is Classic-era and does not hold the Forever trees.",
+    "priest": {
+      "holySpecialization": {
+        "value": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "unit": "% crit on Holy spells",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "improvedRenew": {
+        "value": [
+          5,
+          10,
+          15
+        ],
+        "unit": "% Renew",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "divineFury": {
+        "value": [
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5
+        ],
+        "unit": "s off Greater Heal (and Smite, Holy Fire, Heal)",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "improvedHealing": {
+        "value": [
+          5,
+          10,
+          15
+        ],
+        "unit": "% off the cost of Greater Heal, Penance and Prayer of Mending (and Lesser Heal, Heal)",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "spiritualGuidance": {
+        "value": [
+          5,
+          10,
+          15,
+          20,
+          25
+        ],
+        "unit": "% of Spirit as healing power",
+        "source": [
+          "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+          "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) 14901 (25 at max rank)"
+        ],
+        "confidence": "confirmed-forever"
+      },
+      "spiritualHealing": {
+        "value": [
+          3,
+          7,
+          10
+        ],
+        "unit": "% healing",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "sim-provisional",
+        "note": "the client row 14898 prints 2 per rank; gs's curve reads 3/7/10"
+      },
+      "litanyOfLight": {
+        "value": [
+          5,
+          10
+        ],
+        "unit": "% of the base cost back when the heal differs from the last",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "sim-provisional",
+        "note": "the client rows 1317006/1317007 print 20; Wowhead's talent tooltips are stale (research/priest_forever.md)"
+      },
+      "twinDisciplines": {
+        "value": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "unit": "% on instant heals and shields (Renew, Power Word: Shield, Prayer of Mending, Holy Nova)",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "sim-provisional"
+      },
+      "mentalAgility": {
+        "value": [
+          3,
+          7,
+          10
+        ],
+        "unit": "% off the cost of instants",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "meditation": {
+        "value": [
+          17,
+          33,
+          50
+        ],
+        "unit": "% regeneration while casting",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "improvedPowerWordShield": {
+        "value": [
+          7,
+          14,
+          20
+        ],
+        "unit": "% absorb",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "soulWarding": {
+        "value": [
+          4,
+          15
+        ],
+        "unit": "s off the cooldown, % off the cost",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "renewedHope": {
+        "value": [
+          [
+            2,
+            1
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            6,
+            3
+          ],
+          [
+            8,
+            4
+          ],
+          [
+            10,
+            5
+          ]
+        ],
+        "unit": "% crit on Flash Heal, Binding Heal, Lesser Heal, Heal, Greater Heal and Penance against a Weakened Soul target; s off Weakened Soul per heal",
+        "source": [
+          "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+          "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/priest/renewed_hope.go"
+        ],
+        "confidence": "sim-provisional"
+      },
+      "divineAegis": {
+        "value": [
+          5,
+          10,
+          15
+        ],
+        "unit": "% of a direct crit heal as a shield, up to 20 x level (1,200), 12 s",
+        "source": [
+          "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+          "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/priest/talents_discipline.go"
+        ],
+        "confidence": "sim-provisional"
+      },
+      "inspiration": {
+        "value": [
+          8,
+          16,
+          25
+        ],
+        "unit": "% armor on the target for 15 s after a direct crit heal (cosmetic in the yard)",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+        "confidence": "confirmed-forever"
+      },
+      "innerFocus": {
+        "value": [
+          100,
+          25
+        ],
+        "unit": "% off the next spell, % crit on it",
+        "source": [
+          "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/priest.json",
+          "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) 14751"
+        ],
+        "confidence": "confirmed-forever"
+      },
+      "powerInfusion": {
+        "value": [
+          20,
+          15
+        ],
+        "unit": "% healing, s",
+        "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) 10060",
+        "confidence": "confirmed-forever"
+      }
+    },
+    "druid": {
+      "giftOfNature": {
+        "value": [
+          2,
+          4,
+          6,
+          8,
+          10
+        ],
+        "unit": "% healing",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "genesis": {
+        "value": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "unit": "% periodic healing (and damage)",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "naturalist": {
+        "value": [
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5
+        ],
+        "unit": "s off Healing Touch",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "tranquilSpirit": {
+        "value": [
+          2,
+          4,
+          6,
+          8,
+          10
+        ],
+        "unit": "% off Healing Touch and Tranquility",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "improvedRejuvenation": {
+        "value": [
+          5,
+          10,
+          15
+        ],
+        "unit": "% Rejuvenation",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "improvedRegrowth": {
+        "value": [
+          10,
+          20,
+          30,
+          40,
+          50
+        ],
+        "unit": "% crit on Regrowth",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "giftOfTheEarthmother": {
+        "value": 0.5,
+        "unit": "s off the global cooldown of Rejuvenation, Swiftmend and Wild Growth",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "naturesSplendor": {
+        "value": [
+          3,
+          6
+        ],
+        "unit": "s on Rejuvenation (and Moonfire), s on Regrowth",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "naturesMajesty": {
+        "value": [
+          2,
+          4
+        ],
+        "unit": "% spell crit",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "reflection": {
+        "value": [
+          17,
+          33,
+          50
+        ],
+        "unit": "% regeneration while casting",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "livingSpirit": {
+        "value": [
+          5,
+          10,
+          15
+        ],
+        "unit": "% Spirit",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      },
+      "improvedTranquility": {
+        "value": [
+          30,
+          60
+        ],
+        "unit": "% off the cooldown (and -50/100% threat)",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/druid.json",
+        "confidence": "confirmed-forever"
+      }
+    },
+    "shaman": {
+      "purification": {
+        "value": [
+          2,
+          4,
+          6,
+          8,
+          10
+        ],
+        "unit": "% healing",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "tidalMastery": {
+        "value": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "unit": "% crit on heals",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "tidalFocus": {
+        "value": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "unit": "% off the cost of heals (and % hit)",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "healingWay": {
+        "value": [
+          8,
+          17,
+          25
+        ],
+        "unit": "% Healing Wave",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "improvedHealingWave": {
+        "value": [
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5
+        ],
+        "unit": "s off Healing Wave",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "mindfulness": {
+        "value": [
+          17,
+          33,
+          50
+        ],
+        "unit": "% regeneration while casting",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "restorativeTotems": {
+        "value": [
+          [
+            5,
+            10
+          ],
+          [
+            10,
+            20
+          ],
+          [
+            15,
+            30
+          ],
+          [
+            20,
+            40
+          ],
+          [
+            25,
+            50
+          ]
+        ],
+        "unit": "% Mana Spring, % Healing Stream",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "totemicFocus": {
+        "value": [
+          5,
+          10,
+          15,
+          20,
+          25
+        ],
+        "unit": "% off totem costs",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "ancestralHealing": {
+        "value": [
+          8,
+          16,
+          25
+        ],
+        "unit": "% armor on the target for 15 s after a crit heal (cosmetic in the yard)",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      },
+      "thunderingStrikes": {
+        "value": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "unit": "% crit with spells and attacks",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/shaman.json",
+        "confidence": "confirmed-forever"
+      }
+    },
+    "paladin": {
+      "healingLight": {
+        "value": [
+          4,
+          8,
+          12
+        ],
+        "unit": "% Holy Light, Flash of Light and Holy Shock",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/paladin.json",
+        "confidence": "confirmed-forever"
+      },
+      "illumination": {
+        "value": [
+          [
+            20,
+            50
+          ],
+          [
+            40,
+            50
+          ],
+          [
+            60,
+            50
+          ],
+          [
+            80,
+            50
+          ],
+          [
+            100,
+            50
+          ]
+        ],
+        "unit": "% chance on a crit heal, % of the base cost back",
+        "source": [
+          "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/paladin.json",
+          "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) 20210",
+          "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/paladin/talents_holy.go"
+        ],
+        "confidence": "confirmed-forever"
+      },
+      "infusionOfLight": {
+        "value": [
+          0.5,
+          1.0
+        ],
+        "unit": "s off the next Holy Light within 15 s after a Holy Shock or Flash of Light crit",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/paladin.json",
+        "confidence": "confirmed-forever"
+      },
+      "holyPower": {
+        "value": [
+          [
+            3,
+            1
+          ],
+          [
+            6,
+            2
+          ],
+          [
+            9,
+            3
+          ],
+          [
+            12,
+            4
+          ],
+          [
+            15,
+            5
+          ]
+        ],
+        "unit": "% crit on Holy Shock (and Holy Strike), % on other spells",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/paladin.json",
+        "confidence": "confirmed-forever"
+      },
+      "reverence": {
+        "value": [
+          10,
+          20,
+          30
+        ],
+        "unit": "% regeneration while casting",
+        "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/ui/core/talents/trees/paladin.json",
+        "confidence": "confirmed-forever"
+      },
+      "divineFavor": {
+        "value": 100,
+        "unit": "% crit on the next Flash of Light, Holy Light or Holy Shock",
+        "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat) 20216",
+        "confidence": "confirmed-forever"
+      }
+    }
+  },
+  "builds": {
+    "priestHoly": {
+      "label": "Holy 18/33/0",
+      "talentString": "00500503113-03505103030121531",
+      "source": "gs's Holy test string's Holy tree (healing_priest_test.go) with a legal 18-point Discipline dip (gs's own dip predates the Oct 15 rows)",
+      "confidence": "sim-provisional",
+      "points": "Twin Disciplines 5, Mental Strength 5, Mental Agility 3, Inner Focus, Improved Power Word: Shield 1, Meditation 3 | Improved Renew 3, Holy Specialization 5, Divine Fury 5, Holy Nova, Inspiration 3, Improved Healing 3, Binding Heal, Litany of Light 2, Spirit of Redemption, Spiritual Guidance 5, Spiritual Healing 3, Prayer of Mending"
+    },
+    "priestDisc": {
+      "label": "Discipline 32/19/0",
+      "talentString": "005025021330011531-335001030301",
+      "source": "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/ui/specs/priest/healer/presets.ts (DiscTalents)",
+      "confidence": "sim-provisional",
+      "points": "Twin Disciplines 5, Holy Precision 2, Mental Strength 5, Mental Agility 2, Inner Focus, Improved Power Word: Shield 3, Meditation 3, Soul Warding, Penance, Renewed Hope 5, Divine Aegis 3, Power Infusion | Twilight Focus 3, Improved Renew 3, Holy Specialization 5, Holy Nova, Inspiration 3, Improved Healing 3, Binding Heal"
+    },
+    "priestDiscGs": {
+      "label": "Discipline 33/18/0, Divine Fury",
+      "talentString": "005005231330011531-0250500303",
+      "source": "https://github.com/gunba/wow-forever-sim/blob/bb5811b3af888df9f9bd66e1cc90a6693c3d672c/sim/priest/healing/healing_priest_test.go (DiscTalents), Searing Light 2 moved to Improved Renew 2 so that the Holy rows are legal",
+      "confidence": "sim-provisional"
+    },
+    "druidResto": {
+      "label": "Restoration 11/0/40",
+      "talentString": "05302001--5050035153113251",
+      "source": "ours (fs's restoration_test.go string is on an older tree and does not decode)",
+      "confidence": "sim-provisional",
+      "points": "Genesis 5, Moonglow 3, Nature's Majesty 2, Nature's Splendor | Nature's Focus 5, Naturalist 5, Reflection 3, Gift of Nature 5, Gift of the Earthmother, Tranquil Spirit 5, Improved Rejuvenation 3, Swiftmend, Nature's Swiftness, Living Spirit 3, Improved Tranquility 2, Improved Regrowth 5, Wild Growth"
+    },
+    "druidRestoBalance": {
+      "label": "Restoration 20/0/31, Balance dip",
+      "talentString": "55302001103--5050035103113031",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    },
+    "shamanResto": {
+      "label": "Restoration 0/11/40",
+      "talentString": "-055001-5530203015513151",
+      "source": "ours (fs's restoration_test.go string is on an older tree and does not decode)",
+      "confidence": "sim-provisional",
+      "points": "Thundering Strikes 5, Ancestral Knowledge 5, Improved Ghost Wolf | Improved Healing Wave 5, Tidal Focus 5, Mindfulness 3, Totemic Focus 2, Ancestral Healing 3, Water Shield, Tidal Mastery 5, Restorative Totems 5, Mana Tide Totem, Healing Way 3, Nature's Swiftness, Purification 5, Riptide"
+    },
+    "shamanRestoElemental": {
+      "label": "Restoration 11/0/40, Elemental dip",
+      "talentString": "5500001--5530203015513151",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    },
+    "paladinHoly": {
+      "label": "Holy 34/17/0",
+      "talentString": "55320013025101051-503250002",
+      "source": "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/paladin/holy/holy_test.go (StandardTalents 55320030025131051-503050002), re-pointed: Voice of Truth is a 1-point talent on the current tree and Divine Precision does nothing for heals, so those points went to Reverence 3 and Guardian's Favor 2",
+      "confidence": "sim-provisional",
+      "points": "Divine Strength 5, Divine Intellect 5, Healing Light 3, Spiritual Focus 2, Voice of Truth, Reverence 3, Infusion of Light 2, Illumination 5, Divine Favor, Holy Shock, Holy Power 5, Light's Vigil | Toughness 5, Precision 3, Guardian's Favor 2, Anticipation 5, Sacred Duty 2"
+    },
+    "decodeCheck": "All 8 strings decode on gs's current trees with the row and prerequisite rules (tools/engine_check.ts)."
+  },
+  "hints": {
+    "note": "No sim publishes a healer priority list. These are ours; the yellow glow names the spell and the cue above the bar names the target. \"Low\" is the party member missing the largest share of their health.",
+    "priestHoly": [
+      "Mana potion under 30% mana.",
+      "Low under 35%: Flash Heal.",
+      "Prayer of Mending on the tank when it is free and not on anyone.",
+      "Three or more under 80%: Inner Focus then Prayer of Healing.",
+      "Tank under 70%: Greater Heal.",
+      "Tank without Renew: Renew.",
+      "Low under 75%: Binding Heal when you are hurt too, else Flash Heal.",
+      "Nobody missing more than 8%: nothing (do not overheal)."
+    ],
+    "priestDisc": [
+      "Power Word: Shield on the tank whenever they can be shielded.",
+      "Low under 35%: Penance, else Flash Heal.",
+      "Prayer of Mending, Prayer of Healing as Holy.",
+      "Tank under 70%: Penance, else Greater Heal.",
+      "Renew on the tank, Flash Heal on the low member, as Holy."
+    ],
+    "druidResto": [
+      "Innervate under 25% mana, potion under 30%.",
+      "Low under 35%: Swiftmend if they carry your heal over time, else Nature's Swiftness and Healing Touch, else Regrowth.",
+      "Tank without Rejuvenation: Rejuvenation.",
+      "Three or more under 80%: Wild Growth.",
+      "Tank under 70%: Regrowth if it is not ticking, else Healing Touch.",
+      "Low under 75%: Rejuvenation if missing, else Regrowth."
+    ],
+    "shamanResto": [
+      "Water Shield when it is down.",
+      "Mana Tide under 50% mana, potion under 30%.",
+      "Low under 35%: Nature's Swiftness and Healing Wave, else Lesser Healing Wave.",
+      "Riptide on the tank when it is ready and not ticking.",
+      "Three or more under 80%: Chain Heal (on the Riptide target if they are hurt).",
+      "Tank under 70%: Healing Wave.",
+      "Low under 75%: Riptide, else Lesser Healing Wave.",
+      "Nobody hurt and no Water totem: Healing Stream Totem."
+    ],
+    "paladinHoly": [
+      "Blessing of Light on the tank.",
+      "Lay on Hands under 15%.",
+      "Low under 35%: Holy Shock, else Flash of Light.",
+      "Holy Shock on cooldown on the low member under 85% (on a Light's Vigil tank first).",
+      "Tank under 75%: Light's Vigil under 65%, Divine Favor under 50%, Holy Light when Infusion of Light is up, the tank is under 60% or missing more than 1,800.",
+      "Low under 80%: Flash of Light."
+    ]
+  },
+  "defaultStats": {
+    "note": "No sim publishes a Forever healer sheet (fs's gear sets are level 60 blues as a placeholder). The yard uses the DPS sheets' Intellect gear read as healing power. Change them in Settings.",
+    "priest": {
+      "value": {
+        "healingPower": 205,
+        "spellCrit": 10.6,
+        "mana": 4495,
+        "spirit": 145,
+        "mp5": 9,
+        "health": 2157
+      },
+      "unit": "sheet",
+      "source": "ours, after gs's Smite UI default sheet (research/priest_forever.md)",
+      "confidence": "sim-provisional"
+    },
+    "druid": {
+      "value": {
+        "healingPower": 230,
+        "spellCrit": 10.2,
+        "mana": 4024,
+        "spirit": 150,
+        "mp5": 9,
+        "health": 2400
+      },
+      "unit": "sheet",
+      "source": "ours, after gs's Balance UI default sheet (research/druid_forever.md)",
+      "confidence": "sim-provisional"
+    },
+    "shaman": {
+      "value": {
+        "healingPower": 230,
+        "spellCrit": 11.8,
+        "mana": 4376,
+        "spirit": 140,
+        "mp5": 9,
+        "health": 2510
+      },
+      "unit": "sheet",
+      "source": "ours, after gs's Elemental UI default sheet (research/shaman_forever.md)",
+      "confidence": "sim-provisional"
+    },
+    "paladin": {
+      "value": {
+        "healingPower": 230,
+        "spellCrit": 12.5,
+        "mana": 4200,
+        "spirit": 120,
+        "mp5": 9,
+        "health": 2800
+      },
+      "unit": "sheet",
+      "source": "ours, after gs's Protection UI default sheet (research/paladin_forever.md)",
+      "confidence": "sim-provisional"
+    },
+    "raidDefaults": {
+      "value": [
+        "blessingOfWisdom",
+        "manaSpring"
+      ],
+      "unit": "raid buffs on by default (the shaman brings their own Water totem)",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    }
+  },
+  "sustain": {
+    "value": {
+      "priestHoly": "about 41,000 effective healing in 150 s on the default blows with 160 mana left",
+      "druidResto": "about 42,000 with 1,500 mana left",
+      "shamanResto": "about 46,000 with 700 left",
+      "paladinHoly": "about 42,000 with 90 left"
+    },
+    "unit": "tools/engine_check.ts, a player who follows the cue",
+    "source": "sim-provisional",
+    "confidence": "One healer sustains about 200 healing per second over minutes; the party damage defaults sit a little above that."
+  },
+  "leftOut": {
+    "sodRows": {
+      "value": [
+        "Lifebloom 408124 (14% base mana, 3 stacks, 1.0 s GCD)",
+        "Nourish 408247",
+        "Circle of Healing 401946 (56% base mana, 6 s)",
+        "Pain Suppression 402004",
+        "Earth Shield 408514",
+        "Sacred Shield 412019",
+        "Beacon of Light 409906 (a rune aura)"
+      ],
+      "unit": "client rows in the class skill lines",
+      "source": [
+        "https://nether.wowhead.com/forever/tooltip/spell/408124",
+        "https://nether.wowhead.com/forever/tooltip/spell/408247",
+        "https://nether.wowhead.com/forever/tooltip/spell/401946",
+        "https://nether.wowhead.com/forever/tooltip/spell/408514",
+        "https://nether.wowhead.com/forever/tooltip/spell/412019"
+      ],
+      "confidence": "sim-provisional",
+      "note": "Wowhead prints them at \"Requires level 1\" with Season of Discovery scaling formulas and SkillLineAbility.AcquireMethod 3 (not a trainer); gs's trees have no talent for them. Left out until a trainer or talent teaches them."
+    },
+    "heal": {
+      "value": "Heal and Lesser Heal are not in the Holy skill line rows the extract found (the talents name them)",
+      "unit": "note",
+      "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+      "confidence": "sim-provisional"
+    },
+    "renewAlternate": {
+      "value": "Renew 425277: 194 per tick at 0.23 (970 over 15 s on Wowhead) next to 25315's 166 at 0.2 (830)",
+      "unit": "open question",
+      "source": [
+        "https://nether.wowhead.com/forever/tooltip/spell/25315",
+        "https://nether.wowhead.com/forever/tooltip/spell/425277",
+        "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/priest/talents_holy.go (a TODO on a third Renew, 1289450)"
+      ],
+      "confidence": "sim-provisional"
+    },
+    "racials": {
+      "value": "Desperate Prayer is in every priest's Holy line in the client; the yard gives it to all. Other racials are not modelled.",
+      "unit": "note",
+      "source": "Forever beta client DB2 rows, build 1.60.1.70450 (wago.tools CSV export: SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellCooldowns, SpellRange, SpellAuraOptions, SkillLineAbility, PlayerExpectedStat)",
+      "confidence": "sim-provisional"
+    },
+    "threat": {
+      "value": "healing threat and Subtlety, Silent Resolve, Natural Grace, Healing Grace are not modelled (the dummy has no aggro)",
+      "unit": "note",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    },
+    "pushback": {
+      "value": "the party damage does not hit you except raid-style blasts, and casting pushback is not modelled; Nature's Focus, Healing Focus, Spiritual Focus, Twilight Focus do nothing",
+      "unit": "note",
+      "source": "ours",
+      "confidence": "sim-provisional"
+    }
+  },
+  "engineNotes": {
+    "targeting": "Ability.target 'friend': lands on your target when it is a party member, else on you; no facing; 40 yd. The tank is allies[0].",
+    "heal": "Combat.heal(): healing taken multipliers, effective = min(amount, missing) unless a shield, per-spell rows (hits, crits, total effective, overheal), counters healing/overheal/shielding/heals/healsOnFull, a heal event, afterHeal hooks (Illumination, Water Shield, Divine Aegis).",
+    "damageAlly": "Absorb auras soak first, then health; onDamageTaken hooks (Prayer of Mending, Water Shield); a member at 0 health is dead for 6 s.",
+    "partyBlow": "Scheduled every `speed` s while partyDamage.on; profiles as in party.profiles; raid-style adds a blast on everyone every 15 s.",
+    "review": "healingReview(): overhealing %, heals on a full target, tank under 40% time, deaths, shields soaked, Spirit regeneration time, mana from Judgement of Wisdom, time without mana for the main heal."
+  }
+}

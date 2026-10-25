@@ -72,7 +72,11 @@ export interface HudCallbacks {
   rows(n: number): void;
   /** The rotation helper turned on or off with its button. */
   helper(on: boolean): void;
+  /** A party member clicked in the party frame (healing practice). */
+  selectUnit(u: Unit): void;
 }
+
+interface PartyRow { el: HTMLElement; unit: Unit; fill: HTMLElement; absorb: HTMLElement; text: HTMLElement; auras: AuraRow }
 
 export class Hud {
   readonly root: HTMLElement;
@@ -118,6 +122,9 @@ export class Hud {
   private spellbook: HTMLElement;
   private spellList: HTMLElement;
   private bindBanner: HTMLElement;
+  /** Healing practice: you and your party, with their health, shields and your heals over time. */
+  private partyFrame: HTMLElement;
+  private partyRows: PartyRow[] = [];
   /** Key binding mode: a key pressed over a button binds it. */
   bindMode = false;
   /** The rotation helper: the next ability glows (and the weaving cue shows). */
@@ -182,6 +189,11 @@ export class Hud {
     this.error = h('div', 'error-text');
     this.countdown = h('div', 'countdown');
     this.root.append(this.error, this.countdown);
+
+    // Party frame (healers): built when the party is known.
+    this.partyFrame = h('div', 'party-frame hidden');
+    this.partyFrame.innerHTML = `<div class="party-head">${UI.party}</div>`;
+    this.root.append(this.partyFrame);
 
     // Bottom: player auras, resources, action bar.
     const bottom = h('div', 'bottom');
@@ -422,16 +434,18 @@ export class Hud {
     // Target frame.
     const t: Unit | null = c.target;
     this.targetFrame.classList.toggle('hidden', !t);
+    this.targetFrame.classList.toggle('friendly', !!t?.friendly);
     if (t) {
       this.targetName.textContent = t.name;
       this.targetLevel.textContent = String(t.level);
       const pct = t.health / t.maxHealth;
       this.targetBar.style.transform = `scaleX(${pct})`;
-      this.targetText.textContent = c.healthLocked ? '100%' : `${fmt(t.health)}  (${(pct * 100).toFixed(1)}%)`;
+      this.targetText.textContent = t.friendly ? `${fmt(t.health)} / ${fmt(t.maxHealth)}` : c.healthLocked ? '100%' : `${fmt(t.health)}  (${(pct * 100).toFixed(1)}%)`;
       this.targetAuras.update(t.auras.values(), now);
     } else {
       this.targetAuras.update([], now);
     }
+    if (c.spec.healer) this.updateParty();
 
     // Player.
     this.playerAuras.update(p.auras.values(), now);
@@ -532,6 +546,45 @@ export class Hud {
     this.updateMeter();
   }
 
+  /** The party frame: one row per member, rebuilt when the party changes. */
+  private updateParty(): void {
+    const c = this.combat;
+    const units = c.partyUnits();
+    this.partyFrame.classList.toggle('hidden', units.length < 2);
+    if (this.partyRows.length !== units.length || this.partyRows.some((r, i) => r.unit !== units[i])) {
+      for (const r of this.partyRows) r.el.remove();
+      this.partyRows = units.map((unit) => {
+        const el = h('div', 'party-row');
+        const name = h('div', 'party-name', `<span>${unit.name}</span><span class="party-role">${unit.role ?? ''}</span>`);
+        const bar = h('div', 'party-bar');
+        const fill = h('div', 'party-fill');
+        const absorb = h('div', 'party-absorb');
+        const text = h('div', 'party-text');
+        bar.append(fill, absorb, text);
+        const auras = new AuraRow('party-auras');
+        el.append(name, bar, auras.el);
+        el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.cb.selectUnit(unit); });
+        this.partyFrame.append(el);
+        return { el, unit, fill, absorb, text, auras };
+      });
+    }
+    for (const r of this.partyRows) {
+      const u = r.unit;
+      const pct = u.maxHealth ? u.health / u.maxHealth : 0;
+      let shield = 0;
+      for (const a of u.auras.values()) if (a.absorb) shield += a.absorb;
+      r.fill.style.transform = `scaleX(${pct})`;
+      r.fill.className = `party-fill${pct < 0.35 ? ' critical' : pct < 0.6 ? ' low' : ''}`;
+      r.absorb.style.left = `${Math.min(100, pct * 100)}%`;
+      r.absorb.style.width = `${Math.min(100 - pct * 100, (shield / u.maxHealth) * 100)}%`;
+      r.text.textContent = u.health <= 0 ? `${UI.dead} (${Math.max(0, Math.ceil((u.deadUntil ?? 0) - c.t))} s)` : `${fmt(u.health)} / ${fmt(u.maxHealth)}`;
+      r.el.classList.toggle('selected', c.target === u);
+      r.el.classList.toggle('dead', u.health <= 0);
+      // Your own buffs stay in the buff row; the party rows show heals over time and shields.
+      r.auras.update(u.auras.values(), c.t, (a) => u !== c.self || !!a.absorb || !!a.period);
+    }
+  }
+
   private meterTick = 0;
   private updateMeter(): void {
     if (this.meter.style.display === 'none') return;
@@ -549,7 +602,7 @@ export class Hud {
       return `<div class="meter-row" title="${r.name}: ${landed} attempts, ${crit.toFixed(1)}% crit, ${r.misses} missed or dodged${r.glances ? `, ${r.glances} glancing` : ''}">
         <div class="meter-icon">${iconHtml(r.icon)}</div>
         <span class="meter-name">${r.name}</span>
-        <span class="meter-val">${r.hits} <small>${r.hits === 1 ? 'hit' : 'hits'} · ${crit.toFixed(0)}% crit${r.misses ? ` · ${r.misses} missed` : ''}</small></span>
+        <span class="meter-val">${r.hits} <small>${c.spec.healer && r.overheal !== undefined ? (r.hits === 1 ? 'heal' : 'heals') : r.hits === 1 ? 'hit' : 'hits'} · ${crit.toFixed(0)}% crit${r.misses ? ` · ${r.misses} missed` : ''}${r.overheal !== undefined && r.total + r.overheal > 0 ? ` · ${Math.round((r.overheal / (r.total + r.overheal)) * 100)}% over` : ''}</small></span>
       </div>`;
     }).join('');
     // How the rotation went: the habits matter more than the exact damage.

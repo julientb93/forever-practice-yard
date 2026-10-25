@@ -12,6 +12,7 @@ import { Vfx } from './scene/vfx';
 import { wireVfx } from './combat-vfx';
 import { createWorld } from './scene/world';
 import { SPECS, specById } from './specs';
+import { defaultParty } from './specs/healing';
 import { UI, fmt } from './strings';
 import { Floaters } from './ui/floaters';
 import { addMissing, expandBar, fillExtraRows, slotShown } from './ui/bars';
@@ -48,6 +49,7 @@ function loadPrefs(): Prefs {
     stats: { ...base.stats, ...saved.stats },
     enemy: { ...base.enemy, ...saved.enemy },
     tank: { ...base.tank, ...saved.tank },
+    party: { ...base.party, ...saved.party },
     raid: saved.raid ?? base.raid,
     options: { ...base.options, ...saved.options },
     move: { ...base.move, ...saved.move },
@@ -158,10 +160,26 @@ function layoutDummies(n: number): void {
   select(dummies[n === 3 ? 1 : 0].unit);
 }
 
+// Your party (healing practice): dummies in tabards, the tank next to the enemy.
+const allies: { dummy: Dummy; unit: Unit }[] = [];
+function layoutParty(): void {
+  if (!spec.healer) return;
+  for (const a of allies) world.scene.remove(a.dummy.root);
+  allies.length = 0;
+  for (const unit of defaultParty(prefs.party.tankHealth, prefs.party.memberHealth)) {
+    const dummy = new Dummy({ friendly: true, role: unit.role });
+    dummy.root.position.set(unit.x, 0, unit.z);
+    world.scene.add(dummy.root);
+    allies.push({ dummy, unit });
+  }
+  combat.allies = allies.map((a) => a.unit);
+  controls.obstacles = [...dummies, ...allies].map((d) => ({ x: d.unit.x, z: d.unit.z, r: 0.45 }));
+}
+
 function select(u: Unit | null): void {
   if (combat.target !== u) combat.stopAutoAttack();
   combat.target = u;
-  for (const d of dummies) d.dummy.setSelected(d.unit === u);
+  for (const d of [...dummies, ...allies]) d.dummy.setSelected(d.unit === u);
 }
 
 function applyEnemy(): void {
@@ -174,6 +192,12 @@ function applyEnemy(): void {
   }
   combat.enemyAttacks = { ...combat.enemyAttacks, on: prefs.tank.attacks, speed: prefs.tank.speed, damage: prefs.tank.damage };
   combat.playerHealthLocked = prefs.tank.lockHealth;
+  const pt = prefs.party;
+  combat.partyDamage = { on: !!spec.healer && pt.on, profile: pt.profile, damage: pt.damage, speed: pt.speed, locked: pt.locked };
+  for (const { unit } of allies) {
+    unit.maxHealth = unit.role === 'tank' ? pt.tankHealth : pt.memberHealth;
+    unit.health = Math.min(unit.health, unit.maxHealth);
+  }
 }
 
 function applyStats(): void {
@@ -198,6 +222,7 @@ function fullReset(): void {
 }
 
 layoutDummies(prefs.targets);
+layoutParty();
 applyEnemy();
 applyStats();
 combat.reset();
@@ -243,6 +268,7 @@ const hud = new Hud(app, combat, prefs.bar, {
     settings.setPrefs(prefs);
     persist();
   },
+  selectUnit: (u) => select(u),
 });
 /** The bar changed on the screen (drag, spellbook, Keys): save it and keep Settings in step. */
 function barChanged(): void {
@@ -315,6 +341,8 @@ function startPull(): void {
   pullTimers.push(window.setTimeout(() => {
     hud.showCountdown(UI.go, false);
     combat.clearMeter();
+    // Healers: the pull is when the dummy starts on your party.
+    if (spec.healer && combat.partyDamage.on) combat.enterCombat();
   }, 10_000));
 }
 
@@ -364,6 +392,12 @@ window.addEventListener('keydown', (e) => {
     select(list[(i + 1) % list.length]);
     return;
   }
+  // Healers: F1 targets you, F2 to F5 the party, as in WoW.
+  if (spec.healer && /^F[1-5]$/.test(e.code)) {
+    const party = combat.partyUnits();
+    const u = party[Number(e.code.slice(1)) - 1];
+    if (u) { e.preventDefault(); select(u); return; }
+  }
   const binding = bindingFor(e);
   if (binding) {
     const slot = prefs.bar.findIndex((b, i) => b.key === binding && slotShown(i, prefs.barRows));
@@ -390,6 +424,9 @@ controls.onClick = (x, y, button) => {
       if (button === 2) combat.startAutoAttack();
       return;
     }
+  }
+  for (const a of allies) {
+    if (raycaster.intersectObjects(a.dummy.pickables, false).length) { select(a.unit); return; }
   }
   if (button === 0) select(null);
 };
@@ -424,8 +461,10 @@ app.append(joy);
 }
 
 // ------------------------------------------------------- engine → scene
-const dummyOf = (u: Unit) => dummies.find((d) => d.unit === u)?.dummy;
+const dummyOf = (u: Unit) => dummies.find((d) => d.unit === u)?.dummy ?? allies.find((d) => d.unit === u)?.dummy;
 const playerPos = () => new THREE.Vector3(controls.x, controls.y, controls.z);
+/** Above a party member's head (yours when it is you). */
+const headOf = (u: Unit) => (u === combat.self ? playerPos().add(new THREE.Vector3(0, 2.1, 0)) : dummyOf(u)?.headPosition ?? null);
 
 combat.on('damage', (hit) => {
   const d = dummyOf(hit.target);
@@ -506,6 +545,22 @@ combat.on('death', (u) => {
   const d = dummyOf(u);
   if (d) floaters.note('Defeated!', d.headPosition, 'ft-buff');
 });
+
+// Healing practice: heals rise green from the party member, the dummy's blows red; a dead member comes back after a while.
+combat.on('heal', (hl) => {
+  const at = headOf(hl.target);
+  if (at) floaters.heal(hl, at);
+});
+combat.on('allyHit', (i) => {
+  const at = headOf(i.target);
+  if (!at) return;
+  const big = i.kind === 'crit' || i.kind === 'crush' || i.kind === 'blast';
+  const label = i.kind === 'crit' ? ' crit' : i.kind === 'crush' ? ' crushing' : i.kind === 'blast' ? ' blast' : '';
+  floaters.note(`-${fmt(i.amount)}${label}${i.absorbed ? ` (${fmt(i.absorbed)} absorbed)` : ''}`, at, big ? 'ft-incoming ft-crit' : 'ft-incoming');
+  dummyOf(i.target)?.hit(dummies[0]?.dummy.root.position ?? playerPos(), big ? 1.2 : 0.6);
+});
+combat.on('allyDeath', (u) => { const at = headOf(u); if (at) floaters.note(UI.dead, at, 'ft-incoming ft-crit'); });
+combat.on('allyRevive', (u) => { const at = headOf(u); if (at) floaters.note(UI.backUp, at, 'ft-buff'); });
 
 // The attacking dummy: its swing, your avoidance and the damage you take.
 combat.on('incoming', (i) => {
@@ -599,9 +654,11 @@ function frame(): void {
   }
   const p = combat.player;
   p.x = controls.x; p.z = controls.z; p.facing = controls.facing; p.moving = move.moving;
-  // The attacking dummy turns to face you.
+  // The attacking dummy turns to face you; while it hurts your party it faces the tank.
+  const tank = combat.partyDamage.on && allies.length ? combat.tank() : null;
   for (const { dummy, unit } of dummies) {
-    const facing = combat.enemyAttacks.on && unit === combat.target ? Math.atan2(controls.x - unit.x, controls.z - unit.z) : 0;
+    const facing = tank ? Math.atan2(tank.x - unit.x, tank.z - unit.z)
+      : combat.enemyAttacks.on && unit === combat.target ? Math.atan2(controls.x - unit.x, controls.z - unit.z) : 0;
     unit.facing = facing;
     dummy.root.rotation.y = facing;
   }
@@ -617,6 +674,7 @@ function frame(): void {
   active.setLocomotion(locomotion(move.moving, move.backwards, move.airborne, aiming), move.backwards ? -move.speed : move.speed);
   active.update(dt);
   for (const d of dummies) d.dummy.update(dt, elapsed);
+  for (const a of allies) a.dummy.update(dt, elapsed);
   fx.update(dt, elapsed);
   vfx.update(dt, world.camera, world.renderer.domElement.height);
   updateRings();

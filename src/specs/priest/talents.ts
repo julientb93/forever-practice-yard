@@ -4,7 +4,7 @@
 // See research/priest_forever.md.
 import type { Binding, Stats } from '../../engine/types';
 import { decodeTalents, talentSplit, talentSummary } from '../common';
-import { SHADOW_STATS, SMITE_STATS } from './data';
+import { HEALER_STATS, SHADOW_STATS, SMITE_STATS } from './data';
 
 const TREES = [
   ['powerInLight', 'wandSpecialization', 'twinDisciplines', 'silentResolve', 'holyPrecision', 'mentalStrength', 'martyrdom',
@@ -41,7 +41,7 @@ const NAMES: Record<TalentKey, string> = {
 const NEW_IN_FOREVER = new Set<TalentKey>(['powerInLight', 'twinDisciplines', 'holyPrecision', 'soulWarding', 'penance', 'renewedHope',
   'divineAegis', 'bindingHeal', 'litanyOfLight', 'prayerOfMending', 'improvedMindFlay', 'darkInspiration', 'devouringContagion', 'earlyDemise']);
 
-export type PriestSpec = 'shadow' | 'smite';
+export type PriestSpec = 'shadow' | 'smite' | 'holy' | 'disc';
 
 export interface Build {
   id: string;
@@ -62,9 +62,18 @@ const SHADOW_BAR = bar(['mindFlay', 'mindBlast', 'shadowWordPain', 'shadowWordDe
 const SMITE_BAR = bar(['smite', 'holyFire', 'mindBlast', 'penance', 'innerFocus', 'powerInfusion', 'holyNova', 'shadowWordPain',
   'manaPotion', 'shadowWordDeath']);
 
+const HOLY_BAR = bar(['flashHeal', 'greaterHeal', 'renew', 'prayerOfMending', 'bindingHeal', 'prayerOfHealing', 'powerWordShield', 'innerFocus',
+  'holyNova', 'desperatePrayer', 'manaPotion']);
+const DISC_BAR = bar(['flashHeal', 'penance', 'powerWordShield', 'renew', 'greaterHeal', 'prayerOfHealing', 'innerFocus', 'powerInfusion',
+  'bindingHeal', 'holyNova', 'desperatePrayer', 'manaPotion']);
+
 const GS = 'gunba/wow-forever-sim';
 const FS = 'foreversim';
 export const BUILDS: Build[] = [
+  // Healers: gs's Holy tree with a legal Discipline dip (gs's own 18-point dip predates the Oct 15 rows); fs's Disc preset decodes as is.
+  { id: 'holy', spec: 'holy', name: 'Holy', talentString: '00500503113-03505103030121531', source: `${GS} Holy tree, our Discipline dip`, stats: HEALER_STATS, bar: HOLY_BAR },
+  { id: 'disc', spec: 'disc', name: 'Discipline', talentString: '005025021330011531-335001030301', source: `${FS} preset`, stats: HEALER_STATS, bar: DISC_BAR },
+  { id: 'disc-gs', spec: 'disc', name: 'Discipline, Divine Fury', talentString: '005005231330011531-0250500303', source: `${GS} test build, Searing Light moved to Improved Renew`, stats: HEALER_STATS, bar: DISC_BAR },
   { id: 'shadow', spec: 'shadow', name: 'Shadow', talentString: '30503300103--50452001201302251', source: GS, stats: SHADOW_STATS, bar: SHADOW_BAR },
   { id: 'shadow-community', spec: 'shadow', name: 'Shadow, community build', talentString: '02530003101--55052201201302251', source: 'all three sims', stats: SHADOW_STATS, bar: SHADOW_BAR },
   { id: 'shadow-fs', spec: 'shadow', name: 'Shadow', talentString: '00530323103--50552101201300051', source: `${FS}, re-encoded to the Oct 15 tree`, stats: SHADOW_STATS, bar: SHADOW_BAR },

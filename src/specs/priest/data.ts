@@ -37,6 +37,22 @@ export const SMITE_STATS: Stats = {
   health: 2157,
 };
 
+/**
+ * Healers: the Smite sheet's Intellect and spell power gear read as healing
+ * power (Forever's gear gives one spell power number). Our estimate; no sim
+ * publishes a Forever healer sheet yet.
+ */
+export const HEALER_STATS: Stats = {
+  attackPower: 100,
+  crit: 5,
+  hit: 0,
+  spellCrit: 10.6,
+  spellPower: 205,
+  mainHand: MACE,
+  offHand: null,
+  health: 2157,
+};
+
 const BASE_MANA = 1376;
 
 export const DATA = {
@@ -67,4 +83,20 @@ export const DATA = {
   manaPotion: { min: 1350, max: 2250, cooldown: 120 },
   spirit: 145,
   mp5: 9,
+  // Healing (client rows, build 1.60.1.70450: base is the row's minimum, max = base x (1 + variance)).
+  flashHeal: { mana: 380, cast: 1.5, base: 825, variance: 0.165, coeff: 0.429 },
+  greaterHeal: { mana: 710, cast: 3, base: 1960, variance: 0.11, coeff: 0.857 },
+  renew: { mana: 410, tick: 166, coeff: 0.2, ticks: 5, period: 3 },
+  prayerOfHealing: { mana: 1070, cast: 3, base: 649, variance: 0.054, coeff: 0.286 },
+  prayerOfMending: { mana: 390, cooldown: 10, base: 413, coeff: 0.429, jumps: 5, duration: 30 },
+  powerWordShield: { mana: 500, cooldown: 4, absorb: 928, coeff: 0.1, duration: 30, weakenedSoul: 15 },
+  penanceHeal: { mana: 385, cooldown: 12, bolts: 3, duration: 2, heal: 425, coeff: 0.19, range: 36 },
+  bindingHeal: { mana: 380, cast: 1.5, base: 825, variance: 0.165, coeff: 0.429 },
+  holyNovaHeal: { base: 311, variance: 0.147, coeff: 0.107 },
+  desperatePrayer: { cooldown: 600, base: 1383, variance: 0.165, coeff: 0.429 },
+  divineAegis: { duration: 12, capPerLevel: 20 },
+  inspiration: { duration: 15 },
+  spiritualGuidance: [0, 0.05, 0.1, 0.15, 0.2, 0.25],
+  spiritualHealing: [0, 0.03, 0.07, 0.1],
+  litanyOfLight: [0, 0.05, 0.1],
 };

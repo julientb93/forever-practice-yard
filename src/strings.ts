@@ -12,6 +12,8 @@ export const UI = {
   dummy: 'Training Dummy',
   notEnough: (resource: string) => `Not enough ${resource}`,
   noTarget: 'You have no target',
+  invalidTarget: 'Invalid target',
+  friendDead: 'That party member is dead',
   outOfRange: 'Out of range',
   facingWrong: 'You are facing the wrong way!',
   notReady: 'Ability is not ready yet',
@@ -60,6 +62,9 @@ export const UI = {
   restoreDefaults: 'Restore defaults',
   pressKey: 'Press a key…',
   provisional: 'provisional',
+  party: 'Your party',
+  dead: 'Dead',
+  backUp: 'Back on their feet',
 };
 
 /** Number with thousands separators. */

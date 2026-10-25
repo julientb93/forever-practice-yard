@@ -1,6 +1,6 @@
 // Floating combat text: damage rises from the target, crits pop bigger.
 import * as THREE from 'three';
-import type { Hit } from '../engine/types';
+import type { Heal, Hit } from '../engine/types';
 import { UI, fmt } from '../strings';
 
 interface Floater { el: HTMLElement; pos: THREE.Vector3; born: number; life: number; dx: number; dy: number; rise: number }
@@ -40,6 +40,15 @@ export class Floaters {
     this.spawn(text, cls, at, hit.outcome === 'crit' ? 1.5 : 1.15);
   }
 
+  /** A heal on a party member: what landed, and in small print what was overhealing. A shield shows its strength. */
+  heal(h: Heal, at: THREE.Vector3): void {
+    const el = document.createElement('div');
+    el.className = `ft ${h.shield ? 'ft-shield' : 'ft-heal'}${h.crit ? ' ft-crit' : ''}${h.periodic ? ' ft-dot' : ''}`;
+    const over = h.amount - h.effective;
+    el.innerHTML = h.shield ? `+${fmt(h.amount)} shield` : `+${fmt(h.effective)}${over > 0 ? ` <small>(${fmt(over)} over)</small>` : ''}`;
+    this.place(el, at, h.crit ? 1.5 : 1.15);
+  }
+
   /** Small text near the player (e.g. energy gained). */
   note(text: string, at: THREE.Vector3, cls = 'ft-note'): void {
     this.spawn(text, `ft ${cls}`, at, 1.2);
@@ -49,6 +58,10 @@ export class Floaters {
     const el = document.createElement('div');
     el.className = cls;
     el.textContent = text;
+    this.place(el, at, life);
+  }
+
+  private place(el: HTMLElement, at: THREE.Vector3, life: number): void {
     this.layer.append(el);
     const now = performance.now();
     this.stack = now - this.lastSpawn < 280 ? (this.stack + 1) % 4 : 0;

@@ -29,7 +29,7 @@ const SHOCKS = ['earthShock', 'flameShock', 'frostShock'];
 const CONVECTION = ['lightningBolt', 'chainLightning', 'lavaBurst', ...SHOCKS];
 /** Damage spells Clearcasting makes free. */
 const CLEARCASTING = ['lightningBolt', 'chainLightning', 'lavaBurst', 'fireNova', ...SHOCKS];
-const TOTEMS = ['searingTotem', 'magmaTotem', 'strengthOfEarthTotem', 'stoneskinTotem', 'graceOfAirTotem', 'windfuryTotem', 'manaSpringTotem'];
+const TOTEMS = ['searingTotem', 'magmaTotem', 'strengthOfEarthTotem', 'stoneskinTotem', 'graceOfAirTotem', 'windfuryTotem', 'manaSpringTotem', 'manaTideTotem', 'healingStreamTotem'];
 
 /** Maelstrom Weapon: each stack takes 4 % per point off Lightning Bolt's cast time and cost (5 stacks at 5/5: instant and free). */
 export const maelstromStacks = (c: Combat) => c.aura(c.player, 'maelstromWeapon')?.stacks ?? 0;
@@ -128,12 +128,12 @@ function overload(c: Combat, t: Unit, base: number, coeff: number): void {
 const swingIn = (c: Combat, t: Unit) => { if (melee(c) && c.inRange(t)) c.startAutoAttack(); };
 
 // ------------------------------------------------------------------ totems
-type Slot = 'fire' | 'earth' | 'air' | 'water';
+export type Slot = 'fire' | 'earth' | 'air' | 'water';
 const SLOTS: Record<Slot, string[]> = {
   fire: ['searingTotem', 'magmaTotem'],
   earth: ['strengthOfEarthTotem', 'stoneskinTotem'],
   air: ['graceOfAirTotem', 'windfuryTotemOwn'],
-  water: ['manaSpringTotem'],
+  water: ['manaSpringTotem', 'manaTideTotem', 'healingStreamTotem'],
 };
 const totemSpots = new WeakMap<Combat, Partial<Record<Slot, { x: number; z: number }>>>();
 export const fireTotem = (c: Combat) => !!c.aura(c.player, 'searingTotem') || !!c.aura(c.player, 'magmaTotem');
@@ -144,7 +144,7 @@ export function nearFireTotem(c: Combat, u: Unit, yards: number): boolean {
 }
 const targetsNearFire = (c: Combat, yards: number) => c.targets.filter((u) => u.health > 0 && nearFireTotem(c, u, yards));
 
-function totem(id: string, auraId: string, slot: Slot, name: string, mana: number, describe: (c: Combat) => string,
+export function totem(id: string, auraId: string, slot: Slot, name: string, mana: number, describe: (c: Combat) => string,
   aura: (c: Combat) => Record<string, unknown>, extra: Partial<Ability> = {}): Ability {
   return {
     id, name, icon: id, gcd: D.totemGcd, target: 'self', animation: 'cast',

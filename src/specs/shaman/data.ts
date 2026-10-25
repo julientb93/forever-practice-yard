@@ -38,6 +38,13 @@ export const OFFTANK_STATS: Stats = {
   tank: { health: 4300, armor: 6400, defense: 310, dodge: 11, parry: 5, block: 5, blockValue: 52 },
 };
 
+/** Restoration: a caster sheet with Intellect, Spirit and healing power, one-hander and shield; our estimate (no sim publishes a Forever healer sheet). */
+export const RESTO_STATS: Stats = {
+  attackPower: 296, crit: 10.3, hit: 0, spellCrit: 11.8,
+  spellPower: 230,
+  mainHand: PERSUADER, offHand: null, shield: true, health: 2510,
+};
+
 export const DATA = {
   gcd: 1.5,
   totemGcd: 1,             // confirmed: every totem, not hasted
@@ -79,6 +86,16 @@ export const DATA = {
   lightningOverload: { damage: 0.5 },
   weaponMastery: 1.1,       // disputed: off by default
   manaPotion: { min: 1350, max: 2250, cooldown: 120 },
-  spirit: { elemental: 110, enhancement: 103 },
-  mp5: { elemental: 0, enhancement: 9 },
+  spirit: { elemental: 110, enhancement: 103, resto: 140 },
+  mp5: { elemental: 0, enhancement: 9, resto: 9 },
+  // Restoration (client rows, build 1.60.1.70450: base is the row's minimum, max = base x (1 + variance))
+  healingWave: { mana: 620, cast: 3, base: 1615, variance: 0.133, coeff: 0.857 },
+  lesserHealingWave: { mana: 380, cast: 1.5, base: 820, variance: 0.11, coeff: 0.429 },
+  chainHeal: { mana: 405, cast: 2.5, base: 490, variance: 0.132, coeff: 0.714, jumps: 2, falloff: 0.5 },
+  riptide: { mana: 385, cooldown: 6, base: 841, variance: 0.1, coeff: 0.214, tick: 161, tickCoeff: 0.1, ticks: 5, period: 3, chainHeal: 0.25 },
+  waterShield: { globes: 3, manaPct: 0.02, icd: 3.5, duration: 600 },
+  manaTideTotem: { mana: 60, cooldown: 300, duration: 12, perTick: 290, period: 3 },
+  healingStreamTotem: { mana: 80, tick: 11, coeff: 0.022, period: 2, duration: 300 },
+  naturesSwiftness: { cooldown: 180 },
+  healingWay: [1, 1.08, 1.17, 1.25],
 };

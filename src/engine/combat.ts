@@ -5,7 +5,7 @@
 import { UI } from '../strings';
 import { RAID_EFFECTS, WINDFURY } from './raid';
 import type {
-  Ability, AttackRules, Aura, Hand, Hit, Outcome, Spec, Stats, Unit, VfxStyle,
+  Ability, AttackRules, Aura, Hand, Heal, Hit, Outcome, Spec, Stats, Unit, VfxStyle,
 } from './types';
 
 /** A swing of the attacking dummy against the player. */
@@ -20,6 +20,25 @@ export interface Incoming {
   /** Damage soaked by absorb shields. */
   absorbed: number;
 }
+
+/** How the dummy hurts your party (healing practice): one tank being hit, bursts on it, or damage all over the party. */
+export type PartyProfile = 'steady' | 'spiky' | 'raid';
+export interface PartyDamage {
+  on: boolean;
+  profile: PartyProfile;
+  /** Damage per blow on the tank, after armor. */
+  damage: number;
+  /** Seconds between blows. */
+  speed: number;
+  /** Party health does not drop: practise the casts without the pressure. */
+  locked: boolean;
+}
+/** A blow of the dummy on a party member. */
+export interface AllyHit { target: Unit; amount: number; absorbed: number; kind: 'blow' | 'crit' | 'crush' | 'splash' | 'blast' }
+/** A dead party member is back on their feet after this long (healing practice). */
+const REVIVE_AFTER = 6;
+/** Raid-style damage: a blast on the whole party this often. */
+const BLAST_EVERY = 15;
 
 /** Pet orders, as on WoW's pet bar. */
 export type PetOrder = 'follow' | 'attack' | 'stay';
@@ -115,11 +134,23 @@ export interface Modifiers {
   vsBleeding: number;
   /** Your own Windfury Weapon (shamans): it turns the totem off for you and gives two extra main-hand attacks with this much extra AP. */
   windfuryWeapon: { ap: number; source: string } | null;
+  /** Healers: flat healing power on top of spell power (Spiritual Guidance). */
+  healingPower: number;
+  /** Healers: healing done multiplier from talents (Gift of Nature, Purification, Spiritual Healing). */
+  healingDone: number;
+  /** Healers: healing multiplier per spell (Healing Way, Improved Renew, Healing Light). */
+  healingFor: Record<string, number>;
+  /** Healers: extra crit on heals, in percentage points (Tidal Mastery). */
+  healCrit: number;
+  /** Healers: extra crit per heal (Improved Regrowth, Holy Power on Holy Shock). */
+  healCritFor: Record<string, number>;
 }
 
 export interface MeterRow {
   id: string; name: string; icon: string;
   total: number; hits: number; crits: number; misses: number; glances: number;
+  /** Heals: healing beyond what the target was missing. */
+  overheal?: number;
 }
 
 type Listener<T> = (data: T) => void;
@@ -148,6 +179,12 @@ interface EventMap {
   totem: { slot: string; id: string | null; x: number; z: number; facing: number };
   /** A burst of flame around a point (Fire Nova, Magma Totem), radius in yards. */
   nova: { x: number; z: number; radius: number; color: number; totem?: string };
+  /** A heal landed on a party member (or a shield went up). */
+  heal: Heal;
+  /** The dummy hurt a party member. */
+  allyHit: AllyHit;
+  allyDeath: Unit;
+  allyRevive: Unit;
 }
 
 const freshModifiers = (): Modifiers => ({
@@ -155,6 +192,7 @@ const freshModifiers = (): Modifiers => ({
   physicalDamage: 1, natureDamage: 1, offHand: 1, expertise: 0, armorIgnoreFor: {}, armorIgnore: 0,
   threat: 1, threatFor: {}, hitOff: 0, damageTaken: 1, block: 0, spellCrit: 0, arcaneDamage: 1, vsBleeding: 0,
   windfuryWeapon: null,
+  healingPower: 0, healingDone: 1, healingFor: {}, healCrit: 0, healCritFor: {},
 });
 
 const SOURCE_NAMES: Record<string, string> = {
@@ -191,6 +229,18 @@ export class Combat {
   channeling: { id: string; start: number; end: number; ticks: number; done: number; events: Scheduled[] } | null = null;
   /** Incoming swings from the attacking dummy (tank practice). */
   enemyAttacks = { on: false, speed: 2, damage: 3000, ap: 805, healing: 1500 };
+  /** Your party (healing practice), the tank first. You are `self`, kept in step with the player. */
+  allies: Unit[] = [];
+  /** You, as a unit heals can land on: its health mirrors the player's and it shares the player's auras. */
+  self: Unit = { id: -1, name: 'You', level: 60, health: 1, maxHealth: 1, armor: 0, auras: new Map(), x: 0, z: 0, facing: 0, radius: 0.4, friendly: true, role: 'healer' };
+  /** The dummy's blows on your party (healing practice). */
+  partyDamage: PartyDamage = { on: false, profile: 'spiky', damage: 600, speed: 2.5, locked: false };
+  /** Runs after every heal (Illumination, Water Shield, Divine Aegis). Rebuilt on prepare. */
+  afterHeal: Array<(h: Heal) => void> = [];
+  /** Auras on the tank whose uptime in combat is counted in `counters['uptime:tank:<id>']`. */
+  trackedTankAuras: string[] = [];
+  private partyEv: Scheduled | null = null;
+  private blastEv: Scheduled | null = null;
   /** The player's health does not drop (damage still counts for rage). */
   playerHealthLocked = true;
   /** Mana is never spent (practice option). */
@@ -307,10 +357,13 @@ export class Combat {
       this.scheduleRanged(this.t + 0.5);
     }
     if (this.enemyAttacks.on && !this.enemySwing && this.target && this.target.health > 0) this.scheduleEnemySwing(this.t + 0.5);
-    if (p.inCombat && !p.autoAttacking && !this.autoShooting && this.t - p.lastCombat > LEAVE_COMBAT_AFTER
+    // The blows on your party start once you are in combat (your first heal, or the pull countdown) and stop with Reset.
+    if (this.partyDamage.on && p.inCombat && !this.partyEv) this.schedulePartyBlow(this.t + 1);
+    if (p.inCombat && !p.autoAttacking && !this.autoShooting && !this.partyDamage.on && this.t - p.lastCombat > LEAVE_COMBAT_AFTER
       && !this.targets.some((u) => [...u.auras.values()].some((a) => a.period))) {
       p.inCombat = false;
     }
+    this.syncSelf();
   }
 
   private runQueued(): void {
@@ -367,21 +420,32 @@ export class Combat {
     this.weaving = false;
     this.autoShotReset = 'classic';
     this.pet = newPet();
+    this.partyEv = null;
+    this.blastEv = null;
     this.player = this.newPlayer();
+    this.self.auras = this.player.auras;
     // The scene owns the position: keep it.
     Object.assign(this.player, { x: prev.x, z: prev.z, facing: prev.facing });
     for (const u of this.targets) {
       u.auras.clear();
       u.health = Math.max(1, Math.round(u.maxHealth * this.startHealth));
     }
+    for (const u of this.allies) {
+      u.auras.clear();
+      u.health = u.maxHealth;
+      u.deadUntil = undefined;
+    }
     this.mod = freshModifiers();
     this.onHit = [];
     this.afterDamage = [];
+    this.afterHeal = [];
     this.onIncoming = [];
     this.trackedAuras = [];
     this.trackedTargetAuras = [];
+    this.trackedTankAuras = [];
     const tank = this.stats.tank;
     this.player.maxHealth = this.player.health = tank?.health ?? this.stats.health ?? 4000;
+    this.syncSelf();
     this.clearMeter();
     this.spec.prepare(this);
     this.lastWindfury = -Infinity;
@@ -419,6 +483,10 @@ export class Combat {
       if (this.spec.lowMana && !this.manaLocked && p.resource < this.spec.lowMana(this)) this.count('lowMana', dt);
       for (const id of this.trackedAuras) if (p.auras.has(id)) this.count(`uptime:${id}`, dt);
       for (const id of this.trackedTargetAuras) if (this.target?.auras.has(id)) this.count(`uptime:target:${id}`, dt);
+      const tank = this.allies[0];
+      for (const id of this.trackedTankAuras) if (tank?.auras.has(id)) this.count(`uptime:tank:${id}`, dt);
+      if (tank && tank.health > 0 && tank.health < 0.4 * tank.maxHealth) this.count('tankLow', dt);
+      if (this.t - this.lastSpend >= 5) this.count('regenTime', dt);
     }
     this.addResource(gain);
     if (!p.inCombat && p.decayPerSecond) this.addResource(-p.decayPerSecond * dt);
@@ -426,8 +494,8 @@ export class Combat {
     for (const a of p.auras.values()) if (a.manaPerSecond) buffMana += a.manaPerSecond;
     if (p.maxMana) p.mana = Math.min(p.maxMana, p.mana + (p.manaPerSecond + buffMana) * dt);
     else if (this.spec.resource === 'mana' && buffMana) this.addResource(buffMana * dt);
-    // External healing while the dummy attacks and your health is not locked.
-    if ((this.enemyAttacks.on || this.spec.showHealth) && !this.playerHealthLocked && p.health > 0) {
+    // External healing while the dummy attacks and your health is not locked (a healer looks after their own health).
+    if ((this.enemyAttacks.on || this.spec.showHealth) && !this.spec.healer && !this.playerHealthLocked && p.health > 0) {
       p.health = Math.min(p.maxHealth, p.health + this.enemyAttacks.healing * dt);
     }
     this.regenAt = to;
@@ -569,8 +637,15 @@ export class Combat {
   /** Why the ability cannot be used now, or null. Ignores the GCD. */
   blocker(a: Ability, u: Unit | null = this.target): string | null {
     if (this.cooldownLeft(a.id).left > 0) return UI.notReady;
+    if (a.target === 'friend') {
+      // A heal: on your target if it is a party member, else on you. No facing needed.
+      const f = this.friendTarget();
+      if (f.health <= 0) return UI.friendDead;
+      if (a.range && f !== this.self && !this.inRange(f, a.range)) return UI.outOfRange;
+    }
     if (a.target === 'enemy') {
       if (!u) return UI.noTarget;
+      if (u.friendly) return UI.invalidTarget;
       if (u.health <= 0) return UI.targetDead;
       if (a.range && !this.inRange(u, a.range)) return UI.outOfRange;
       if (a.minRange && this.distance(u) < a.minRange * YARD + u.radius) return UI.tooClose;
@@ -601,8 +676,8 @@ export class Combat {
       else this.emit('error', UI.notReady);
       return false;
     }
-    const u = a.target === 'enemy' ? this.target : null;
-    const reason = this.blocker(a, u);
+    const u = a.target === 'enemy' ? this.target : a.target === 'friend' ? this.friendTarget() : null;
+    const reason = this.blocker(a, a.target === 'enemy' ? u : this.target);
     if (reason) {
       this.emit('error', reason);
       return false;
@@ -640,6 +715,8 @@ export class Combat {
       if (a.noAutoAttack) this.enterCombat(); else if (a.ranged) this.startAutoShot(); else this.startAutoAttack();
       this.ownerAttacks(u);
     }
+    // A heal while the dummy hurts your party keeps you in the fight.
+    if (a.target === 'friend' && this.partyDamage.on) this.enterCombat();
     this.emit('ability', { id: a.id, animation: a.animation });
     return true;
   }
@@ -665,8 +742,8 @@ export class Combat {
     if (!cast) return;
     this.casting = null;
     const a = this.ability(cast.id)!;
-    const u = a.target === 'enemy' ? this.target : null;
-    const reason = this.blocker(a, u);
+    const u = a.target === 'enemy' ? this.target : a.target === 'friend' ? this.friendTarget() : null;
+    const reason = this.blocker(a, a.target === 'enemy' ? u : this.target);
     if (reason) {
       this.emit('error', reason);
       return;
@@ -686,6 +763,7 @@ export class Combat {
       if (a.noAutoAttack) this.enterCombat(); else if (a.ranged) this.startAutoShot(); else this.startAutoAttack();
       this.ownerAttacks(u);
     }
+    if (a.target === 'friend' && this.partyDamage.on) this.enterCombat();
     this.emit('cast', { id: a.id, done: true });
     this.emit('ability', { id: a.id, animation: a.animation });
   }
@@ -1120,10 +1198,11 @@ export class Combat {
 
   /** Global cooldown of an ability: spells shrink with casting haste, never under 1 s. */
   gcdOf(a: Ability): number {
-    if (!a.hastedGcd || a.gcd <= 0) return a.gcd;
+    const gcd = a.gcdFor ? a.gcdFor(this) : a.gcd;
+    if (!a.hastedGcd || a.gcd <= 0) return gcd;
     let mult = 1;
     for (const x of this.player.auras.values()) if (x.gcdMult) mult *= x.gcdMult;
-    return Math.max(1, (a.gcd / this.castHaste()) * mult);
+    return Math.max(1, (gcd / this.castHaste()) * mult);
   }
 
   /** Spell crit chance: gear and talents plus spell crit auras (no suppression vs +3 in the sims). */
@@ -1141,7 +1220,7 @@ export class Combat {
   }
 
   /** Product of a multiplier carried by the player's auras. */
-  auraProduct(key: 'damageDone' | 'damageTaken' | 'threat'): number {
+  auraProduct(key: 'damageDone' | 'damageTaken' | 'threat' | 'healingDone'): number {
     let m = 1;
     for (const a of this.player.auras.values()) if (a[key] !== undefined) m *= a[key]!;
     return m;
@@ -1338,6 +1417,160 @@ export class Combat {
     return m.threat / Math.max(1, this.t - m.start);
   }
 
+  // ------------------------------------------------------------------ party
+  /** You and your party: heals can land on any of them. The tank is `allies[0]`. */
+  partyUnits(): Unit[] { return [this.self, ...this.allies]; }
+  /** Party members on their feet. */
+  partyAlive(): Unit[] { return this.partyUnits().filter((u) => u.health > 0); }
+  /** The party member a heal lands on: your target if it is one, else yourself (WoW's self-cast). */
+  friendTarget(): Unit { return this.target?.friendly ? this.target : this.self; }
+  /** The tank, or whoever stands in for one. */
+  tank(): Unit { return this.allies.find((u) => u.role === 'tank') ?? this.allies[0] ?? this.self; }
+  /** Keeps `self` in step with the player. */
+  syncSelf(): void {
+    const p = this.player;
+    this.self.maxHealth = p.maxHealth;
+    this.self.health = p.health;
+    this.self.x = p.x;
+    this.self.z = p.z;
+    this.self.facing = p.facing;
+  }
+  /** Health a party member is missing. */
+  missing(u: Unit): number { return Math.max(0, u.maxHealth - u.health); }
+  /** The party member missing the largest share of their health, alive, or null when nobody is hurt. */
+  lowestAlly(opts: { not?: Unit; minMissing?: number } = {}): Unit | null {
+    let best: Unit | null = null;
+    for (const u of this.partyAlive()) {
+      if (u === opts.not || this.missing(u) < (opts.minMissing ?? 1)) continue;
+      if (!best || u.health / u.maxHealth < best.health / best.maxHealth) best = u;
+    }
+    return best;
+  }
+  /** Healing taken multiplier from the target's auras. */
+  healingTaken(u: Unit): number {
+    let m = 1;
+    for (const a of u.auras.values()) if (a.healingTaken !== undefined) m *= a.healingTaken;
+    return m;
+  }
+
+  /**
+   * A heal lands (or a shield goes up). What the target was missing counts as
+   * healing, the rest is overhealing; a shield counts in full. The rotation
+   * panel shows heals and crits per spell, never a healing total.
+   */
+  heal(h: Omit<Heal, 'effective'>): Heal {
+    const u = h.target;
+    const amount = Math.max(0, Math.round(h.amount * this.healingTaken(u)));
+    const missing = this.missing(u);
+    const effective = h.shield ? amount : Math.min(amount, missing);
+    const heal: Heal = { ...h, amount, effective };
+    if (this.meter.start === null) this.meter.start = this.t;
+    this.meter.end = this.t;
+    const row = this.meterRow(h.source);
+    row.hits++;
+    if (h.crit) row.crits++;
+    row.total += effective;
+    if (!h.shield) row.overheal = (row.overheal ?? 0) + amount - effective;
+    this.count('healing', effective);
+    if (h.shield) this.count('shielding', amount); else this.count('overheal', amount - effective);
+    if (!h.periodic) {
+      this.count('heals');
+      if (!h.shield && missing <= u.maxHealth * 0.02) this.count('healsOnFull');
+    }
+    if (!h.shield && u.health > 0 && !this.partyDamage.locked) {
+      u.health = Math.min(u.maxHealth, u.health + effective);
+      if (u === this.self) this.player.health = u.health;
+    }
+    this.emit('heal', heal);
+    for (const fn of this.afterHeal) fn(heal);
+    return heal;
+  }
+
+  /** The dummy hurts a party member: absorb shields soak first (Power Word: Shield), then health. */
+  damageAlly(u: Unit, amount: number, kind: AllyHit['kind']): void {
+    if (u.health <= 0) return;
+    let left = Math.round(amount);
+    let absorbed = 0;
+    for (const a of [...u.auras.values()]) {
+      if (!a.absorb || left <= 0) continue;
+      const n = Math.min(a.absorb, left);
+      a.absorb -= n;
+      left -= n;
+      absorbed += n;
+      if (a.absorb <= 0) this.removeAura(u, a.id);
+    }
+    this.player.inCombat = true;
+    this.player.lastCombat = this.t;
+    if (this.meter.start === null) this.meter.start = this.t;
+    this.meter.end = this.t;
+    if (!this.partyDamage.locked && left > 0) {
+      u.health = Math.max(0, u.health - left);
+      if (u === this.self) this.player.health = u.health;
+    }
+    this.count('damageTaken', left);
+    this.count('damageAbsorbed', absorbed);
+    if (left > 0 && this.meter.start !== null) this.count(u.role === 'tank' ? 'tankHits' : 'partyHits');
+    this.emit('allyHit', { target: u, amount: left, absorbed, kind });
+    for (const a of [...u.auras.values()]) a.onDamageTaken?.(this, a, left);
+    if (u.health === 0) this.allyDies(u);
+  }
+
+  private allyDies(u: Unit): void {
+    this.count('deaths');
+    u.deadUntil = this.t + REVIVE_AFTER;
+    // Your own buffs stay (self shares the player's auras); a party member's heals over time go with them.
+    if (u !== this.self) for (const a of [...u.auras.values()]) this.removeAura(u, a.id);
+    this.emit('allyDeath', u);
+    this.schedule(this.t + REVIVE_AFTER, () => {
+      if (u.health > 0) return;
+      u.health = u.maxHealth;
+      u.deadUntil = undefined;
+      if (u === this.self) this.player.health = u.health;
+      this.emit('allyRevive', u);
+    });
+  }
+
+  private schedulePartyBlow(at: number): void {
+    this.partyEv = this.schedule(at, () => this.partyBlow());
+  }
+
+  /** The dummy's blow on the tank; raid-style, splashes on the others and a blast on everyone every 12 s. */
+  private partyBlow(): void {
+    this.partyEv = null;
+    const pd = this.partyDamage;
+    if (!pd.on || !this.player.inCombat) return;
+    const r = this.random;
+    const tank = this.allies.find((u) => u.role === 'tank' && u.health > 0) ?? this.allies.find((u) => u.health > 0) ?? (this.self.health > 0 ? this.self : null);
+    if (tank) {
+      let n = pd.damage * (0.9 + r() * 0.2);
+      let kind: AllyHit['kind'] = 'blow';
+      if (pd.profile === 'spiky') {
+        // Bursts: crits and crushing blows, like a boss on a tank.
+        const x = r();
+        if (x < 0.15) { n *= 2; kind = 'crit'; } else if (x < 0.35) { n *= 1.5; kind = 'crush'; }
+        n *= 0.85 + r() * 0.3;
+      } else if (pd.profile === 'raid') {
+        n *= 0.6;
+        if (r() < 0.12) { n *= 1.5; kind = 'crush'; }
+      }
+      this.damageAlly(tank, n, kind);
+    }
+    if (pd.profile === 'raid') {
+      const others = this.partyUnits().filter((u) => u !== tank && u.health > 0);
+      if (others.length && r() < 0.4) this.damageAlly(others[Math.floor(r() * others.length)], pd.damage * 0.4 * (0.7 + r() * 0.6), 'splash');
+      if (!this.blastEv) this.blastEv = this.schedule(this.t + BLAST_EVERY, () => this.partyBlast());
+    }
+    this.schedulePartyBlow(this.t + Math.max(0.5, pd.speed));
+  }
+
+  private partyBlast(): void {
+    this.blastEv = null;
+    const pd = this.partyDamage;
+    if (!pd.on || pd.profile !== 'raid' || !this.player.inCombat) return;
+    for (const u of this.partyAlive()) this.damageAlly(u, pd.damage * 0.45 * (0.9 + this.random() * 0.2), 'blast');
+    this.blastEv = this.schedule(this.t + BLAST_EVERY, () => this.partyBlast());
+  }
+
   // ------------------------------------------------------ attacking dummy
   private scheduleEnemySwing(at: number): void {
     this.nextEnemySwing = at;
@@ -1472,14 +1705,14 @@ export class Combat {
     const cd = this.cooldownLeft(id);
     const gcd = a.gcd > 0 && p.gcdEnd > this.t
       ? { left: p.gcdEnd - this.t, total: p.gcdEnd - p.gcdStart } : { left: 0, total: 0 };
-    const u = a.target === 'enemy' ? this.target : null;
+    const u = a.target === 'enemy' ? this.target : a.target === 'friend' ? this.friendTarget() : null;
     const cost = this.cost(a);
     return {
       ability: a,
       cost,
       cooldown: cd.left > gcd.left ? cd : gcd,
       noResource: cost > p.resource || (!!a.manaCost && !this.manaLocked && a.manaCost(this) > p.mana),
-      outOfRange: a.target === 'enemy' && !!a.range && !!u && !this.inRange(u, a.range),
+      outOfRange: !!a.range && !!u && u !== this.self && !this.inRange(u, a.range),
       usable: a.usable ? a.usable(this) : true,
       highlight: (a.highlight?.(this) ?? false) || this.queuedSwing === a.id,
     };
