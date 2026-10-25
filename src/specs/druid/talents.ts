@@ -70,6 +70,9 @@ export const BUILDS: Build[] = [
   // Healers: our proposals (foreversim's Restoration test string is on an older tree and does not decode).
   { id: 'resto', spec: 'resto', name: 'Restoration', talentString: '05302001--5050035153113251', stats: RESTO_STATS, bar: RESTO_BAR },
   { id: 'resto-balance', spec: 'resto', name: 'Restoration, Balance dip', talentString: '55302001103--5050035103113031', stats: RESTO_STATS, bar: RESTO_BAR },
+  // SixtySim's tuned benches (sixtysim.com, 19 Oct 2026): one target, and a party of five.
+  { id: 'resto-sixtysim', spec: 'resto', name: 'Restoration, one target', talentString: '05302001-03-5050035143113051', stats: RESTO_STATS, bar: RESTO_BAR },
+  { id: 'resto-sixtysim-party', spec: 'resto', name: 'Restoration, party', talentString: '05302001-04-5053035143113011', stats: RESTO_STATS, bar: RESTO_BAR },
   { id: 'cat', spec: 'cat', name: 'Feral Cat', talentString: '05002-45010032021032212051-055', stats: CAT_STATS, bar: CAT_BAR },
   { id: 'cat-feral', spec: 'cat', name: 'Feral, deeper (Natural Shapeshifter)', talentString: '-55210032021132212051-05503', stats: CAT_STATS, bar: CAT_BAR },
   { id: 'bear', spec: 'bear', name: 'Bear tank', talentString: '01-50022332120132012551-055', stats: BEAR_STATS, bar: BEAR_BAR, tank: true },
@@ -78,7 +81,7 @@ export const BUILDS: Build[] = [
 ];
 
 export const buildsFor = (spec: DruidSpec) => BUILDS.filter((b) => b.spec === spec);
-export const buildLabel = (b: Build) => `${b.name} ${talentSplit(b.talentString)} (${b.spec === 'resto' ? 'our proposal' : GS})`;
+export const buildLabel = (b: Build) => `${b.name} ${talentSplit(b.talentString)} (${b.id.includes('sixtysim') ? 'SixtySim bench, 1 min, tuned' : b.spec === 'resto' ? 'our proposal' : GS})`;
 
 const cache = new Map<string, Talents>();
 export function buildById(id: unknown, spec: DruidSpec): Build {

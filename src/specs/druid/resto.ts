@@ -253,7 +253,7 @@ export const druidResto: Spec = {
   abilities: ABILITIES,
   stats: RESTO_STATS,
   rules: BOSS_RULES,
-  builds: buildsFor('resto').map((b) => ({ id: b.id, label: buildLabel(b), name: b.name, source: 'our proposal', talentString: b.talentString, stats: b.stats, bar: b.bar, trees: summary(talentsFor(b.id, 'resto')) })),
+  builds: buildsFor('resto').map((b) => ({ id: b.id, label: buildLabel(b), name: b.name, source: b.id.includes('sixtysim') ? 'SixtySim bench, 1 min, tuned' : 'our proposal', talentString: b.talentString, stats: b.stats, bar: b.bar, trees: summary(talentsFor(b.id, 'resto')) })),
   defaultOptions: { build: 'resto', mana: 4024, spirit: D.restoSpirit, mp5: D.restoMp5, lockMana: false },
   defaultRaid: ['blessingOfWisdom', 'manaSpring'],
   lowMana: (c) => c.cost(c.ability('healingTouch')!),

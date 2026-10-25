@@ -16,6 +16,8 @@ Research date: 25 Oct 2026. The machine-readable version is `healing_forever.jso
 |---|---|---|
 | client | Forever beta client DB2 rows through [wago.tools](https://wago.tools/db2/SpellEffect?build=1.60.1.70450): SpellEffect, SpellPower, SpellMisc, SpellCastTimes, SpellDuration, SpellLevels, SpellName, SkillLineAbility, SkillLine, SpellClassOptions, PlayerExpectedStat, ChrClasses (local extract in `ClassScaling/db2`), plus SpellCooldowns, SpellRange, SpellAuraOptions, SpellTargetRestrictions, Spell, Talent fetched for the same build | build 1.60.1.70450 |
 | wowhead | Wowhead Forever tooltips (`nether.wowhead.com/forever/tooltip/spell/<id>`) | 21 ids read 25 Oct 2026 |
+| wf | [wowsims/forever](https://github.com/wowsims/forever) (MIT), the upstream foreversim forks: the same healer code (its paladin heals make 0.25 threat a point healed, with a test), the same older-tree test talent strings, no healer APL | commit `8e32acca79`, 25 Oct 2026 |
+| ss | [SixtySim](https://sixtysim.com/method/): a fork of wowsims/forever (commit `e0085e8`, 19 Oct 2026) that searches gear, talents and rotations for every spec and ranks healers by healing per second on one target or a party of five over the fight's mana. "The engine only has the paladin's heals; the other healers' heals are ours." It leaves out the spell ranks raid books teach, so its rotations cast Greater Heal 4, Renew 9, Healing Touch 10, Rejuvenation 10, Healing Wave 9 and Holy Light 8; it does not model Inspiration, Prayer of Mending, Binding Heal, Ancestral Healing or healer set bonuses. Its bench digests (`/app-assets/digests_bench60-*.js`, `digests_bench120-*.js`) hold the tuned talent strings, rotations and healing per spell | method page and digests of 19 Oct 2026, read 25 Oct |
 | gs | [gunba/wow-forever-sim](https://github.com/gunba/wow-forever-sim) (MIT): `ui/core/talents/trees/*.json` (the trees), `sim/core/base_stats.go` (crit per Intellect), `sim/priest/healing` (a wowsims/classic stub: commented-out WotLK heals; no healer APL) | commit `bb5811b3af`, 24 Oct 2026 |
 | fs | [laurencestokes/foreversim](https://github.com/laurencestokes/foreversim) (MIT): healer specs for priest, druid, paladin and shaman on the client rows (`sim/priest/*.go`, `sim/paladin/holy_light.go`, `flash_of_light.go`, `holy_shock.go`, `divine_favor.go`, `talents_holy.go`, `sim/shaman/shields.go`, `talents_restoration.go`, `sim/druid/natures_swiftness.go`); the druid healing talents, Riptide and the shaman heals are TODO or disabled (`_heals.go` holds WotLK numbers); no healer APL; its test talent strings are on older tree shapes, only the Disc preset decodes | commit `10205cb9bc`, 22 Oct 2026 |
 | ours | this yard: `src/engine/combat.ts` (party, heals, overhealing), `src/specs/healing.ts` (heal rolls, hints, review), `src/specs/<class>/*.ts` | branch `healing-specs` |
@@ -33,12 +35,15 @@ Wowhead's level-60 tooltips print a few percent under the client rows for Holy L
 | Rule | Value | Confidence |
 |---|---|---|
 | Healing power | Spell power from gear (one number in Forever) + flat talent bonuses (Spiritual Guidance: up to 25% of Spirit). Judgement of Wisdom gives a healer nothing | sim-provisional |
-| Heal crit | 1.5x; the chance is the sheet's spell crit + healing talents + Moonkin Aura. Base spell crit 0.8% priest, 1.8% druid, 2.3% shaman, 3.5% paladin; about 60 Intellect per 1% (client PlayerExpectedStat 0.000167–0.000169 per point, gs agrees). Ticks roll a crit like a direct heal (fs) | classic-fallback / confirmed / provisional |
+| Heal crit | 1.5x; the chance is the sheet's spell crit + healing talents + Moonkin Aura. Base spell crit 0.8% priest, 1.8% druid, 2.3% shaman, 3.5% paladin; about 60 Intellect per 1% (client PlayerExpectedStat 0.000167–0.000169 per point, gs agrees). Ticks roll a crit like a direct heal (fs, wf; SixtySim: "heals over time can critically strike", and its Renew, Riptide and Wild Growth digests show crit ticks) | classic-fallback / confirmed / provisional |
 | Misses | Heals cannot miss or be resisted | classic-fallback |
 | Overhealing | What the target was not missing; counted per spell and in total. A shield (Power Word: Shield, Divine Aegis) counts in full and never overheals | sim-provisional |
 | Heals over time | Ticks re-read healing power (no snapshot, as Forever's DoTs). Recasting restarts the heal and loses the pending tick | sim-provisional / classic-fallback |
 | Global cooldown | 1.5 s, shorter with casting haste down to 1.0 s. Gift of the Earthmother: 1.0 s on Rejuvenation, Swiftmend and Wild Growth. Totems 1.0 s. Off the GCD: Inner Focus, Power Infusion, Divine Favor, Nature's Swiftness | confirmed |
-| Mana | Base mana 1376 priest, 1244 druid, 1520 shaman, 1512 paladin (client PlayerExpectedStat) + 15 per Intellect. Spirit regeneration 6.25 + Spirit/8 per second stops for 5 s after a spell costs mana; Meditation, Reflection, Mindfulness and Reverence keep a share while casting; MP5 always; Innervate x5 and all of it | confirmed / sim-provisional |
+| Mana | Base mana 1376 priest, 1244 druid, 1520 shaman, 1512 paladin (client PlayerExpectedStat) + 15 per Intellect. Spirit regeneration 6.25 + Spirit/8 per second stops for 5 s after a spell costs mana (gs's formula; SixtySim credits it every tenth of a second); Meditation, Reflection, Mindfulness and Reverence keep a share while casting; MP5 always; Innervate x5 and all of it | confirmed / sim-provisional |
+| Low-rank penalty | A rank loses 5% of its spell power for each level you are more than 12 past its maximum level (SixtySim); at 60 the ranks learned from about level 43 keep it all. None of the yard's heals is affected (its lowest rank is Chain Heal 3, level 54) | sim-provisional |
+| Ranks | The yard casts the top rank in the client (Greater Heal 5, Renew 10, Prayer of Healing 5, Healing Touch 11, Rejuvenation 11, Healing Wave 10, Holy Light 9). SixtySim leaves out the ranks raid books teach and casts Greater Heal 4 (1782 + 0.857 for 655 mana), Renew 9 (134 per tick), Healing Touch 10 (1920 + 1.0 for 755), Rejuvenation 10 (161 per tick for 335), Healing Wave 9 (1344 + 0.857 for 560) and Holy Light 8 (1217 + 0.714 for 580). In Classic the top ranks came from raid and reputation books; whether Forever teaches them at a trainer is open | sim-provisional |
+| Heal threat | Holy Light, Flash of Light and Holy Shock's heal make 0.25 threat a point healed, half of other heals (wowsims/forever, with a test); not modelled, the dummy has no aggro | sim-provisional |
 | Percentage costs | Swiftmend 20% of base mana (249), Divine Favor 4% (60), Power Infusion 20% (275), Innervate 5% (62) | confirmed |
 
 ## The party and the dummy's blows (the yard)
@@ -128,7 +133,7 @@ Not modelled: threat (Subtlety, Silent Resolve, Natural Grace, Healing Grace), p
 
 ## Builds
 
-All eight strings decode on gunba's current trees with the row and prerequisite rules (`tools/engine_check.ts`). No sim publishes a Forever healer build that decodes on the current trees except foreversim's Discipline preset, so most are ours (**sim-provisional**).
+All seventeen strings decode on gunba's current trees with the row and prerequisite rules (`tools/engine_check.ts`). Of the sims' own strings only foreversim's Discipline preset and SixtySim's tuned benches decode on the current trees; the first four below are ours (**sim-provisional**).
 
 | Build | Split | String | Source |
 |---|---|---|---|
@@ -140,10 +145,21 @@ All eight strings decode on gunba's current trees with the row and prerequisite 
 | Shaman Restoration | 0/11/40 | `-055001-5530203015513151` | ours; fs's `restoration_test.go` string is on an older tree |
 | Shaman Restoration, Elemental dip | 11/0/40 | `5500001--5530203015513151` | ours |
 | Paladin Holy | 34/17/0 | `55320013025101051-503250002` | fs `holy_test.go` (`55320030025131051-503050002`), re-pointed: Voice of Truth is a 1-point talent now and Divine Precision does nothing for heals, so Reverence 3 and Guardian's Favor 2 |
+| Priest Holy, one target (SixtySim) | 20/31/0 | `00520503113-2350500313001053` | SixtySim 1 min bench, tuned; rotation Greater Heal 4 + Renew 9, 1,310 HPS |
+| Priest Holy, party (SixtySim) | 21/30/0 | `00510503133-0350500313002053` | SixtySim; Prayer of Healing 4 then rank 1 with Renew 9 on five, 1,463 HPS |
+| Priest Discipline, one target (SixtySim) | 31/19/1 | `005005021332011431-0350500303-001` | SixtySim; Greater Heal 4 + Renew 9, 1,256 HPS |
+| Priest Discipline, party (SixtySim) | 32/19/0 | `005005021332011531-0350500303` | SixtySim; Prayer of Healing 4 and 3 with Penance 4, 1,427 HPS |
+| Druid Restoration, one target (SixtySim) | 11/3/37 | `05302001-03-5050035143113051` | SixtySim; Healing Touch 10 + Rejuvenation 10 + Regrowth 9 + Swiftmend, 1,393 HPS |
+| Druid Restoration, party (SixtySim) | 11/4/36 | `05302001-04-5053035143113011` | SixtySim; Rejuvenation 10 on five, Wild Growth 3, Swiftmend, Regrowth, Healing Touch, 1,891 HPS |
+| Shaman Restoration, one target (SixtySim) | 1/10/40 | `1-055-5530400215503151` | SixtySim; Healing Wave 9 + Riptide 3 + Healing Stream Totem 5, 1,410 HPS |
+| Shaman Restoration, party (SixtySim) | 1/11/39 | `1-055001-5530300315503051` | SixtySim; Healing Wave 9 + Riptide 3 on five + Healing Stream Totem 5, 1,547 HPS |
+| Paladin Holy 38/13 (SixtySim) | 38/13/0 | `25320213225131051-50323` | SixtySim, the same string as foreversim's Holy healer preset; Holy Light 8 (1,117 HPS), or Light's Vigil 3 and Holy Shock 4 then Holy Light 8 for a party (1,125 HPS) |
+
+SixtySim's healing per second comes with full consumables, raid buffs, its own gear search (item level 58–62) and a party of five taking damage; its 2 min benches run 850–1,300 HPS with time without mana (Discipline dry for 16 s, the party druid for 31 s). The yard's party damage defaults (about 300 per second) sit under these because the yard's sheets carry no consumables.
 
 ## Priority lists (the glow and the cue)
 
-No sim has a healer priority list; these are ours (**sim-provisional**). The yellow glow names the spell, the cue above the bar the target; "low" is the party member missing the largest share of their health.
+No sim has a healer priority list; SixtySim's digests give the spells its tuned rotations cast (the builds table), which agree with these on the backbone: a big heal on the tank with Renew, Rejuvenation or Riptide kept up, Prayer of Healing, Wild Growth and Chain Heal for a party, Swiftmend, Light's Vigil with a double Holy Shock. The lists are ours (**sim-provisional**). The yellow glow names the spell, the cue above the bar the target; "low" is the party member missing the largest share of their health.
 
 - **Priest Holy**: mana potion under 30% mana; low under 35%: Flash Heal; Prayer of Mending on the tank when free and on nobody; three or more under 80%: Inner Focus then Prayer of Healing; tank under 70%: Greater Heal; tank without Renew: Renew; low under 75%: Binding Heal when you are hurt too, else Flash Heal; nobody missing more than 8%: nothing.
 - **Priest Discipline**: Power Word: Shield on the tank whenever they can be shielded; low under 35%: Penance, else Flash Heal; Prayer of Mending and Prayer of Healing as Holy; tank under 70%: Penance, else Greater Heal; then Renew and Flash Heal as Holy.
@@ -178,4 +194,5 @@ Heals and crits per spell with the share that was overhealing; overhealing in to
 6. Healing threat, pushback and the five-second rule's exact server timing are not modelled; the dummy has no aggro.
 7. Prayer of Mending's jump target (the yard: the most hurt other member) and its 2.5 s delay in fs (the yard heals at once).
 8. Whether Desperate Prayer is a racial in Forever (the client puts it in every priest's Holy line).
-9. Whether the Season of Discovery rows (Lifebloom, Nourish, Circle of Healing, Pain Suppression, Earth Shield, Sacred Shield, Beacon of Light) ever reach a trainer or a talent.
+9. Whether the Season of Discovery rows (Lifebloom, Nourish, Circle of Healing, Pain Suppression, Earth Shield, Sacred Shield, Beacon of Light) ever reach a trainer or a talent (SixtySim agrees on Shadowfiend: a rune only).
+10. Whether the top ranks (Greater Heal 5, Renew 10, Healing Touch 11, Rejuvenation 11, Healing Wave 10, Holy Light 9) come from a trainer in Forever or from raid books as in Classic; SixtySim casts the rank below.

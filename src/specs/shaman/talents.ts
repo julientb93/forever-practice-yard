@@ -53,6 +53,9 @@ export const BUILDS: Build[] = [
   // Healers: our proposals (foreversim's Restoration test string is on an older tree and does not decode).
   { id: 'resto', spec: 'resto', name: 'Restoration', talentString: '-055001-5530203015513151', source: OURS, stats: RESTO_STATS, bar: RESTO_BAR, options: { mana: 4376 } },
   { id: 'resto-elemental', spec: 'resto', name: 'Restoration, Elemental dip', talentString: '5500001--5530203015513151', source: OURS, stats: RESTO_STATS, bar: RESTO_BAR, options: { mana: 4376 } },
+  // SixtySim's tuned benches (sixtysim.com, 19 Oct 2026): one target, and a party of five.
+  { id: 'resto-sixtysim', spec: 'resto', name: 'Restoration, one target', talentString: '1-055-5530400215503151', source: 'SixtySim bench, 1 min, tuned', stats: RESTO_STATS, bar: RESTO_BAR, options: { mana: 4376 } },
+  { id: 'resto-sixtysim-party', spec: 'resto', name: 'Restoration, party', talentString: '1-055001-5530300315503051', source: 'SixtySim bench, 1 min, tuned', stats: RESTO_STATS, bar: RESTO_BAR, options: { mana: 4376 } },
 ];
 
 export const buildsFor = (spec: ShamanSpec) => BUILDS.filter((b) => b.spec === spec);

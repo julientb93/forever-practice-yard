@@ -69,11 +69,17 @@ const DISC_BAR = bar(['flashHeal', 'penance', 'powerWordShield', 'renew', 'great
 
 const GS = 'gunba/wow-forever-sim';
 const FS = 'foreversim';
+const SS = 'SixtySim bench, 1 min, tuned';
 export const BUILDS: Build[] = [
   // Healers: gs's Holy tree with a legal Discipline dip (gs's own 18-point dip predates the Oct 15 rows); fs's Disc preset decodes as is.
   { id: 'holy', spec: 'holy', name: 'Holy', talentString: '00500503113-03505103030121531', source: `${GS} Holy tree, our Discipline dip`, stats: HEALER_STATS, bar: HOLY_BAR },
   { id: 'disc', spec: 'disc', name: 'Discipline', talentString: '005025021330011531-335001030301', source: `${FS} preset`, stats: HEALER_STATS, bar: DISC_BAR },
   { id: 'disc-gs', spec: 'disc', name: 'Discipline, Divine Fury', talentString: '005005231330011531-0250500303', source: `${GS} test build, Searing Light moved to Improved Renew`, stats: HEALER_STATS, bar: DISC_BAR },
+  // SixtySim's tuned benches (sixtysim.com, 19 Oct 2026): one target, and a party of five.
+  { id: 'holy-sixtysim', spec: 'holy', name: 'Holy, one target', talentString: '00520503113-2350500313001053', source: SS, stats: HEALER_STATS, bar: HOLY_BAR },
+  { id: 'holy-sixtysim-party', spec: 'holy', name: 'Holy, party', talentString: '00510503133-0350500313002053', source: SS, stats: HEALER_STATS, bar: HOLY_BAR },
+  { id: 'disc-sixtysim', spec: 'disc', name: 'Discipline, one target', talentString: '005005021332011431-0350500303-001', source: SS, stats: HEALER_STATS, bar: DISC_BAR },
+  { id: 'disc-sixtysim-party', spec: 'disc', name: 'Discipline, party', talentString: '005005021332011531-0350500303', source: SS, stats: HEALER_STATS, bar: DISC_BAR },
   { id: 'shadow', spec: 'shadow', name: 'Shadow', talentString: '30503300103--50452001201302251', source: GS, stats: SHADOW_STATS, bar: SHADOW_BAR },
   { id: 'shadow-community', spec: 'shadow', name: 'Shadow, community build', talentString: '02530003101--55052201201302251', source: 'all three sims', stats: SHADOW_STATS, bar: SHADOW_BAR },
   { id: 'shadow-fs', spec: 'shadow', name: 'Shadow', talentString: '00530323103--50552101201300051', source: `${FS}, re-encoded to the Oct 15 tree`, stats: SHADOW_STATS, bar: SHADOW_BAR },

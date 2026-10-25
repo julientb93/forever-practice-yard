@@ -12,7 +12,9 @@
     },
     "simsCompared": {
       "gs": "gunba/wow-forever-sim (branch 'forever'), commit bb5811b3af (24 Oct 2026). Its talent trees (ui/core/talents/trees) are the layout the yard draws. Its priest healing spec (sim/priest/healing) is the wowsims/classic stub: the heals are commented-out WotLK numbers, and its Disc and Holy test strings predate the Oct 15 trees. No healer APL.",
-      "fs": "laurencestokes/foreversim (branch 'master'), commit 10205cb9bc (22 Oct 2026). Registers healer specs for priest (sim/priest/healer), druid (sim/druid/restoration), paladin (sim/paladin/holy) and shaman (sim/shaman/restoration) on the client rows: priest heals, Power Word: Shield with Weakened Soul, Renewed Hope, Divine Aegis, Litany of Light, Inspiration, Prayer of Mending jumps, Holy Light, Flash of Light, Holy Shock, Divine Favor, Illumination, Infusion of Light, Light's Vigil, Water Shield, Mana Tide and Nature's Swiftness are modelled; the druid healing talents, Riptide and the shaman heals (sim/shaman/_heals.go, WotLK numbers) are TODO or disabled. No healer APL; its test talent strings are on older tree shapes (only the Disc preset decodes on the current trees)."
+      "wf": "wowsims/forever (branch 'master'), commit 8e32acca79 (25 Oct 2026): the upstream foreversim forks. The healer code is the same as fs's below (the paladin's heals make 0.25 threat a point healed there, half of other heals, with a test; FillTalentsProto moved); the same older-tree test talent strings. No healer APL.",
+      "ss": "SixtySim (sixtysim.com, method page and the bench digests read 25 Oct 2026): a fork of wowsims/forever (commit e0085e8, 19 Oct 2026) that searches gear, talents and rotations for every spec, healers ranked by healing per second on one target or a party of five over the fight's mana. The engine only has the paladin's heals; the other healers' heals are SixtySim's own. It leaves out the spell ranks raid books teach (Greater Heal 4, Renew 9, Healing Touch 10, Rejuvenation 10, Healing Wave 9, Holy Light 8 in its rotations) and does not model Inspiration, Prayer of Mending, Binding Heal, Ancestral Healing or healer set bonuses. Its talent strings decode on gs's trees; the yard offers its 1 min bench builds.",
+      "fs": "laurencestokes/foreversim (branch 'master'), commit 10205cb9bc (22 Oct 2026), a fork of wowsims/forever. Registers healer specs for priest (sim/priest/healer), druid (sim/druid/restoration), paladin (sim/paladin/holy) and shaman (sim/shaman/restoration) on the client rows: priest heals, Power Word: Shield with Weakened Soul, Renewed Hope, Divine Aegis, Litany of Light, Inspiration, Prayer of Mending jumps, Holy Light, Flash of Light, Holy Shock, Divine Favor, Illumination, Infusion of Light, Light's Vigil, Water Shield, Mana Tide and Nature's Swiftness are modelled; the druid healing talents, Riptide and the shaman heals (sim/shaman/_heals.go, WotLK numbers) are TODO or disabled. No healer APL; its test talent strings are on older tree shapes (only the Disc preset decodes on the current trees)."
     },
     "practiceYardSummary": [
       "Heals never miss and crit for 1.5x; the crit chance is the spell crit on the sheet plus the healing talents. Ticks of heals over time re-read healing power and can crit (the sims roll heal crits on ticks; provisional).",
@@ -42,10 +44,23 @@
       "license": "MIT"
     },
     {
+      "id": "wf",
+      "name": "wowsims/forever",
+      "url": "https://github.com/wowsims/forever/blob/8e32acca79c6e54eab4564874263d5ebce5eeb1b/",
+      "license": "MIT",
+      "note": "the upstream of foreversim; the same healer code"
+    },
+    {
       "id": "fs",
       "name": "laurencestokes/foreversim",
       "url": "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/",
       "license": "MIT"
+    },
+    {
+      "id": "ss",
+      "name": "SixtySim",
+      "url": "https://sixtysim.com/method/",
+      "note": "method page; bench digests served as /app-assets/digests_bench60-*.js and digests_bench120-*.js (JSON inside the module)"
     },
     {
       "id": "ours",
@@ -111,9 +126,12 @@
       "ticks": {
         "value": "heal over time ticks roll a crit like a direct heal",
         "unit": "rule",
-        "source": "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/priest/renew.go",
+        "source": [
+          "https://github.com/laurencestokes/foreversim/blob/10205cb9bcd28d24fcdec49d9dc267e41c6a2372/sim/priest/renew.go",
+          "https://sixtysim.com/method/"
+        ],
         "confidence": "sim-provisional",
-        "note": "OutcomeTickHealingCrit in fs; no Forever log confirms it"
+        "note": "OutcomeTickHealingCrit in fs and wf; SixtySim: \"heals over time can critically strike\" (its Renew, Riptide and Wild Growth digests show crit ticks). No Forever log confirms it"
       }
     },
     "noMiss": {
@@ -157,9 +175,34 @@
       "unit": "rule",
       "source": [
         "research/priest_forever.md (gs common formula)",
+        "https://sixtysim.com/method/ (\"outside the five-second rule, Spirit gives every mana class 6.25 + Spirit / 8 mana a second, credited every tenth of a second\")",
         "ours"
       ],
       "confidence": "sim-provisional"
+    },
+    "lowRankPenalty": {
+      "value": "a spell rank loses 5% of its spell power for each level you are more than 12 past the rank's maximum level; at 60 the ranks learned from about level 43 keep it all",
+      "unit": "rule",
+      "source": "https://sixtysim.com/method/",
+      "confidence": "sim-provisional",
+      "note": "None of the yard's heals is affected: its lowest rank is Chain Heal 3 (level 54)."
+    },
+    "ranks": {
+      "value": "the yard casts the top rank in the client: Greater Heal 5, Renew 10, Prayer of Healing 5, Healing Touch 11, Rejuvenation 11, Regrowth 9, Healing Wave 10, Holy Light 9, Flash of Light 6",
+      "unit": "rule",
+      "source": [
+        "ours",
+        "https://sixtysim.com/method/"
+      ],
+      "confidence": "sim-provisional",
+      "note": "SixtySim leaves out the ranks raid books teach and casts Greater Heal 4, Renew 9, Healing Touch 10, Rejuvenation 10, Healing Wave 9 and Holy Light 8. In Classic the top ranks of those heals came from raid and reputation books; whether Forever teaches them at a trainer is open. The client rows for the lower ranks: Greater Heal 4 1782 + 0.857 for 655 mana, Renew 9 134 per tick, Healing Touch 10 1920 + 1.0 for 755, Rejuvenation 10 161 per tick for 335, Healing Wave 9 1344 + 0.857 for 560, Holy Light 8 1217 + 0.714 for 580."
+    },
+    "healThreat": {
+      "value": "Holy Light, Flash of Light and Holy Shock's heal make 0.25 threat a point healed, half of other heals",
+      "unit": "rule",
+      "source": "https://github.com/wowsims/forever/blob/8e32acca79c6e54eab4564874263d5ebce5eeb1b/sim/paladin/holy/heal_threat_test.go",
+      "confidence": "sim-provisional",
+      "note": "not modelled in the yard (the dummy has no aggro)"
     },
     "baseMana": {
       "value": {
@@ -3196,10 +3239,87 @@
       "confidence": "sim-provisional",
       "points": "Divine Strength 5, Divine Intellect 5, Healing Light 3, Spiritual Focus 2, Voice of Truth, Reverence 3, Infusion of Light 2, Illumination 5, Divine Favor, Holy Shock, Holy Power 5, Light's Vigil | Toughness 5, Precision 3, Guardian's Favor 2, Anticipation 5, Sacred Duty 2"
     },
-    "decodeCheck": "All 8 strings decode on gs's current trees with the row and prerequisite rules (tools/engine_check.ts)."
+    "sixtysim": {
+      "label": "SixtySim bench builds (1 min, tuned by its search; its 2 min builds in sixtysimBench)",
+      "source": "https://sixtysim.com/?fight=bench60 (digests_bench60, generated 2026-10-19T05:39Z, engine e0085e8c)",
+      "confidence": "sim-provisional",
+      "note": "All decode on gs's trees. Offered in the yard as \"one target\" and \"party\" builds. SixtySim's stats are its own gear search (item level 58-62 known items); its rotations cast the lower ranks its item policy allows.",
+      "priestHoly": {
+        "talentString": "00520503113-2350500313001053",
+        "split": "20/31/0",
+        "rotation": "Greater Heal 4 + Renew 9",
+        "hps1min": 1310,
+        "party": {
+          "talentString": "00510503133-0350500313002053",
+          "split": "21/30/0",
+          "rotation": "Prayer of Healing 4 > Prayer of Healing 1 + Renew 9 on five",
+          "hps1min": 1463
+        }
+      },
+      "priestDisc": {
+        "talentString": "005005021332011431-0350500303-001",
+        "split": "31/19/1",
+        "rotation": "Greater Heal 4 + Renew 9",
+        "hps1min": 1256,
+        "party": {
+          "talentString": "005005021332011531-0350500303",
+          "split": "32/19/0",
+          "rotation": "Prayer of Healing 4 > Prayer of Healing 3 + Penance 4",
+          "hps1min": 1427
+        }
+      },
+      "druidResto": {
+        "talentString": "05302001-03-5050035143113051",
+        "split": "11/3/37",
+        "rotation": "Healing Touch 10 + Rejuvenation 10 + Regrowth 9 + Swiftmend",
+        "hps1min": 1393,
+        "party": {
+          "talentString": "05302001-04-5053035143113011",
+          "split": "11/4/36",
+          "rotation": "Healing Touch 10 > Regrowth 9 + Rejuvenation 10 on five + Wild Growth 3 + Swiftmend",
+          "hps1min": 1891
+        }
+      },
+      "shamanResto": {
+        "talentString": "1-055-5530400215503151",
+        "split": "1/10/40",
+        "rotation": "Healing Wave 9 + Riptide 3 + Healing Stream Totem 5",
+        "hps1min": 1410,
+        "party": {
+          "talentString": "1-055001-5530300315503051",
+          "split": "1/11/39",
+          "rotation": "Healing Wave 9 + Riptide 3 on five + Healing Stream Totem 5",
+          "hps1min": 1547
+        }
+      },
+      "paladinHoly": {
+        "talentString": "25320213225131051-50323",
+        "split": "38/13/0",
+        "rotation": "Holy Light 8 (one target); Light's Vigil 3 and Holy Shock 4 > Holy Light 8 (party)",
+        "hps1min": 1117,
+        "hps1minParty": 1125,
+        "note": "the same string as foreversim's Holy healer preset (research/paladin_forever.md)"
+      }
+    },
+    "sixtysimBench": {
+      "value": {
+        "disc_priest": "Greater Heal 4 > Greater Heal 3 + Penance 4 + Renew 9, 918 HPS, dry for 16 s",
+        "priest_healer": "Greater Heal 4 > Greater Heal 2 + Renew 9, 1056 HPS",
+        "resto_druid": "Healing Touch 10 + Rejuvenation 10 + Regrowth 9 + Swiftmend, 1185 HPS",
+        "resto_druid_party": "Rejuvenation on five + Wild Growth + Swiftmend + Tranquility, 1249 HPS, dry for 31 s",
+        "resto_shaman": "Healing Wave 9 > Healing Wave 8 + Water Shield + Healing Stream, 1175 HPS",
+        "resto_shaman_party": "Healing Wave 9 > Chain Heal 2 + Riptide on five + Water Shield + Healing Stream, 1300 HPS",
+        "holy": "Holy Light 8 > Flash of Light 6, 854 HPS"
+      },
+      "unit": "SixtySim 2 min bench (digests_bench120, 2026-10-19)",
+      "source": "https://sixtysim.com/?fight=bench120 (digests_bench120, generated 2026-10-19T05:39Z, engine e0085e8c)",
+      "confidence": "sim-provisional",
+      "note": "Healing per second with full consumables, raid buffs and a party of five taking damage; the 1 min benches run 1,100-1,900, the 2 min ones 850-1,300 with time without mana. The yard's party damage defaults (about 300 damage per second) sit under these because the yard's sheets carry no consumables and the player has no gear search."
+    },
+    "decodeCheck": "All 17 strings decode on gs's current trees with the row and prerequisite rules (tools/engine_check.ts)."
   },
   "hints": {
-    "note": "No sim publishes a healer priority list. These are ours; the yellow glow names the spell and the cue above the bar names the target. \"Low\" is the party member missing the largest share of their health.",
+    "note": "No sim publishes a healer priority list; SixtySim's digests give the spells its tuned rotations cast (above), which agree with these on the backbone: a big heal on the tank with Renew, Rejuvenation or Riptide kept up, Prayer of Healing, Wild Growth and Chain Heal for a party, Swiftmend, Light's Vigil with a double Holy Shock. The lists below are ours; the yellow glow names the spell and the cue above the bar names the target. \"Low\" is the party member missing the largest share of their health.",
     "priestHoly": [
       "Mana potion under 30% mana.",
       "Low under 35%: Flash Heal.",
@@ -3320,6 +3440,12 @@
     "confidence": "One healer sustains about 200 healing per second over minutes; the party damage defaults sit a little above that."
   },
   "leftOut": {
+    "shadowfiend": {
+      "value": "Shadowfiend is not cast: only a Season of Discovery rune teaches it (SixtySim agrees)",
+      "unit": "note",
+      "source": "https://sixtysim.com/method/",
+      "confidence": "sim-provisional"
+    },
     "sodRows": {
       "value": [
         "Lifebloom 408124 (14% base mana, 3 stacks, 1.0 s GCD)",

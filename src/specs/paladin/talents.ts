@@ -74,6 +74,8 @@ const FS = 'foreversim';
 export const BUILDS: Build[] = [
   // Healer: foreversim's Holy test build with Voice of Truth at its 1-point maximum and the spare points in Reverence (our reading).
   { id: 'holy', spec: 'holy', name: 'Holy', talentString: '55320013025101051-503250002', source: `${FS} test build, re-pointed`, stats: HOLY_STATS, bar: HOLY_BAR },
+  // SixtySim's bench (sixtysim.com, 19 Oct 2026), the same 38/13/0 as foreversim's "Holy healer" preset.
+  { id: 'holy-sixtysim', spec: 'holy', name: 'Holy 38/13', talentString: '25320213225131051-50323', source: 'SixtySim bench (foreversim preset)', stats: HOLY_STATS, bar: HOLY_BAR },
   { id: 'ret', spec: 'ret', name: 'Retribution', talentString: '55003-232-05225231001330301', source: GS, stats: RET_STATS, bar: RET_BAR },
   { id: 'ret-physical', spec: 'ret', name: 'Physical Retribution', talentString: '52003003-232-05225031101330311', source: GS, stats: RET_STATS, bar: RET_BAR },
   { id: 'ret-fs', spec: 'ret', name: 'Retribution', talentString: '550030022001--05225231001330321', source: FS, stats: RET_STATS, bar: RET_BAR },

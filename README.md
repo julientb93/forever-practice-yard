@@ -167,7 +167,7 @@ Totem's bolts and Fire Nova's ring start from your Fire totem.
 **Healers** come as five specs, the first ones in a yard that otherwise practises damage (sources in
 [`research/healing_forever.md`](research/healing_forever.md): every number from the Forever beta client rows, build
 1.60.1.70450, checked against Wowhead Forever, with a confidence label; no sim publishes a Forever healer list or sheet yet,
-so the builds, priority lists and stats are marked as ours). Your party stands with you: a tank in front of the dummy
+so the builds, priority lists and stats are marked as ours; SixtySim's tuned bench builds are offered too). Your party stands with you: a tank in front of the dummy
 (6,500 health), a rogue beside them, a mage and a hunter at range (3,800 each), and the dummy hurts them (Settings → "The dummy
 attacks your party"): steady blows on the tank, spiky blows with crits and crushing blows, or raid-style damage with splashes and
 a blast on everyone every 15 sec. The blows start with your first heal or the pull countdown. Click a party member in the party
