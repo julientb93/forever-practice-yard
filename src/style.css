@@ -399,3 +399,35 @@ img.wow-icon { width: 100%; height: 100%; display: block; object-fit: cover; tra
 .disclaimer-box { max-width: 760px; margin: 0 auto 24px; padding: 12px 16px; border: 1px solid var(--gold-dim); border-radius: 8px;
   background: rgba(40, 30, 12, .55); color: var(--muted); font-size: 13px; line-height: 1.5; }
 .disclaimer-box b, .disclaimer b { color: var(--ink); }
+
+/* ------------------------------------------------------- healing practice */
+.target-frame.friendly .target-bar { background: #0c2a0c; }
+.target-frame.friendly .target-fill { background: linear-gradient(#4fd14a, #1f7a1c); }
+.target-frame.friendly .target-level { color: #7aff8a; }
+.target-frame.friendly .target-level::after { content: ''; }
+.party-frame { position: absolute; left: 14px; top: 268px; width: 196px; display: flex; flex-direction: column; gap: 4px; }
+.party-frame.hidden { display: none; }
+.party-head { font-family: Georgia, 'Palatino Linotype', serif; font-size: 12px; color: var(--gold); letter-spacing: .04em; text-shadow: 0 1px 2px #000; }
+.party-row { background: var(--panel); border: 1px solid #3b3024; border-radius: 6px; padding: 4px 6px; cursor: pointer; user-select: none; }
+.party-row:hover { border-color: var(--gold-dim); }
+.party-row.selected { border-color: var(--gold); box-shadow: 0 0 6px rgba(216,178,90,.45); }
+.party-row.dead { opacity: .55; }
+.party-name { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; font-weight: 600; text-shadow: 0 1px 2px #000; }
+.party-role { color: var(--muted); font-weight: 400; text-transform: capitalize; }
+.party-bar { position: relative; height: 13px; margin-top: 2px; background: #0c2a0c; border: 1px solid #000; border-radius: 3px; overflow: hidden; }
+.party-fill { position: absolute; inset: 0; background: linear-gradient(#4fd14a, #1f7a1c); transform-origin: left; }
+.party-fill.low { background: linear-gradient(#ffb84a, #c86a10); }
+.party-fill.critical { background: linear-gradient(#ff5a4a, #a8180a); }
+.party-absorb { position: absolute; top: 0; bottom: 0; background: rgba(255, 230, 128, .6); }
+.party-text { position: absolute; inset: 0; display: grid; place-items: center; font-size: 10px; font-weight: 700; text-shadow: 0 1px 2px #000; }
+.party-auras { gap: 2px; margin-top: 3px; }
+.party-auras .aura { width: 20px; height: 20px; }
+.party-auras .aura-time { font-size: 9px; }
+.ft-heal { color: #7aff8a; font-size: 19px; }
+.ft-heal small { font-size: 12px; font-weight: 700; color: #c8ffc8; }
+.ft-shield { color: #ffe680; font-size: 16px; }
+@media (max-width: 720px) {
+  .party-frame { top: 118px; width: 150px; gap: 3px; }
+  .party-row { padding: 3px 5px; }
+  .party-auras { display: none; }
+}

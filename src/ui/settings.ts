@@ -1,6 +1,6 @@
 // Settings dialog: how to play, character stats, enemy, options, keybinds
 // and credits. Every change applies at once and is saved in the browser.
-import type { Combat } from '../engine/combat';
+import type { Combat, PartyProfile } from '../engine/combat';
 import type { Binding, Spec, SpecBuild, Stats, WeaponType } from '../engine/types';
 import type { MoveBindings } from '../scene/controls';
 import { UI } from '../strings';
@@ -19,6 +19,8 @@ export interface Prefs {
   enemy: { health: number; armor: number; locked: boolean; startPct: number };
   /** The dummy attacks you (tank practice). */
   tank: { attacks: boolean; speed: number; damage: number; lockHealth: boolean };
+  /** The dummy attacks your party (healing practice). */
+  party: { on: boolean; profile: PartyProfile; damage: number; speed: number; locked: boolean; tankHealth: number; memberHealth: number };
   /** Raid buffs and dummy debuffs switched on (ids from engine/raid.ts). */
   raid: string[];
   suggest: boolean;
@@ -39,6 +41,7 @@ export function defaultPrefs(spec: Spec, move: MoveBindings): Prefs {
     stats: structuredClone(spec.stats),
     enemy: { health: 1_000_000, armor: 3731, locked: false, startPct: 100 },
     tank: { attacks: !!spec.tank, speed: 2, damage: spec.tankDamage ?? 2500, lockHealth: !spec.showHealth },
+    party: { on: !!spec.healer, profile: 'spiky', damage: spec.partyDamage ?? 600, speed: 2.5, locked: false, tankHealth: 6500, memberHealth: 3800 },
     raid: [...(spec.defaultRaid ?? [])],
     suggest: true,
     meter: true,
@@ -245,6 +248,23 @@ export class SettingsDialog {
     }
     tk.append(h('p', 'note', 'It turns to face you and rolls miss, dodge, parry, block, crit and crushing blows against your sheet, like a level 63 boss.'));
 
+    // Healing practice: the dummy hurts your party.
+    if (this.spec.healer) {
+      const pt = this.section('The dummy attacks your party');
+      this.toggle(pt, 'The dummy attacks your party', () => p.party.on, (v) => { p.party.on = v; }, 'enemy');
+      this.choice(pt, 'How it hurts them', [
+        { value: 'steady', label: 'Steady blows on the tank' },
+        { value: 'spiky', label: 'Spiky: crits and crushing blows on the tank' },
+        { value: 'raid', label: 'Raid-style: splashes on everyone and a blast every 12 s' },
+      ], () => p.party.profile, (v) => { p.party.profile = v as PartyProfile; }, 'enemy');
+      this.number(pt, 'Damage per blow on the tank (after armor)', () => p.party.damage, (v) => { p.party.damage = Math.max(0, v); }, 'enemy', '', 50);
+      this.number(pt, 'Seconds between blows', () => p.party.speed, (v) => { p.party.speed = Math.max(0.5, v); }, 'enemy', 's', 0.1);
+      this.number(pt, "The tank's health", () => p.party.tankHealth, (v) => { p.party.tankHealth = Math.max(1, v); }, 'enemy', '', 100);
+      this.number(pt, "The other party members' health", () => p.party.memberHealth, (v) => { p.party.memberHealth = Math.max(1, v); }, 'enemy', '', 100);
+      this.toggle(pt, "Lock the party's health (practise the casts without the pressure)", () => p.party.locked, (v) => { p.party.locked = v; }, 'enemy');
+      pt.append(h('p', 'note', 'Steady: a blow on the tank every few seconds. Spiky: the same with 15% crits (x2) and 20% crushing blows (x1.5). Raid-style: softer blows on the tank, a splash on a random member now and then, and a blast on everyone (you too) every 15 sec. One healer sustains about 200 healing per second over minutes before the mana runs out, so the default blows add up to a little more than that: raise them for a sprint, lower them to practise the rhythm. Heals land on your target if it is a party member, else on you. F1 to F5 target you and the party.'));
+    }
+
     // Options.
     const op = this.section(UI.options);
     this.toggle(op, UI.suggestions, () => p.suggest, (v) => { p.suggest = v; }, 'view');
@@ -365,7 +385,7 @@ export class SettingsDialog {
   }
 
   private choice(parent: HTMLElement, label: string, choices: { value: string; label: string }[], get: () => string, set: (v: string) => void,
-    what: 'options' | 'bar' = 'options'): void {
+    what: 'options' | 'bar' | 'enemy' = 'options'): void {
     const row = h('label', 'field');
     row.append(h('span', '', label));
     const sel = document.createElement('select');

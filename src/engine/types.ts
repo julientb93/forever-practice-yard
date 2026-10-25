@@ -97,6 +97,8 @@ export interface Aura {
   crit?: number;
   /** On the player: damage done multiplier (Death Wish, Defensive Stance). */
   damageDone?: number;
+  /** On the player: healing done multiplier (Power Infusion). */
+  healingDone?: number;
   /** On the player: damage taken multiplier (stances, Shield Wall). */
   damageTaken?: number;
   /** On the player: threat multiplier (stances). */
@@ -137,6 +139,10 @@ export interface Aura {
   absorb?: number;
   /** On a target: flat bonus damage taken per school, scaled by each spell's coefficient (Judgement of the Crusader). */
   schoolBonusTaken?: Partial<Record<School, number>>;
+  /** On a party member: runs when the dummy hurts them (Prayer of Mending jumps, Earth Shield). `amount` is after absorbs. */
+  onDamageTaken?: (c: Combat, a: Aura, amount: number) => void;
+  /** On a party member: healing taken multiplier (a tank's healing debuff would go here). */
+  healingTaken?: number;
   hidden?: boolean;
 }
 
@@ -152,6 +158,29 @@ export interface Unit {
   z: number;
   facing: number;  // forward = (sin facing, cos facing)
   radius: number;  // meters
+  /** A party member (healing practice): heals land on it, the dummy's blows hurt it. */
+  friendly?: boolean;
+  /** What a party member does: the tank stands in melee and takes the blows. */
+  role?: PartyRole;
+  /** Seconds until a dead party member is back (healing practice). */
+  deadUntil?: number;
+}
+
+export type PartyRole = 'tank' | 'melee' | 'ranged' | 'healer';
+
+/** A heal landing on a party member (or a shield going up). */
+export interface Heal {
+  target: Unit;
+  source: string;
+  /** Healing rolled, before the target's missing health caps it. */
+  amount: number;
+  /** What the target was missing: the rest is overhealing. Shields count in full. */
+  effective: number;
+  crit: boolean;
+  periodic?: boolean;
+  school: School;
+  /** An absorb shield (Power Word: Shield): it absorbs instead of healing. */
+  shield?: boolean;
 }
 
 export interface Hit {
@@ -184,7 +213,8 @@ export interface Ability {
   cooldownGroup?: string;
   /** Global cooldown in seconds; 0 if it does not trigger it. */
   gcd: number;
-  target: 'enemy' | 'self';
+  /** 'friend': a heal; with no party member targeted it lands on you, as in WoW. */
+  target: 'enemy' | 'self' | 'friend';
   range?: 'melee' | number;
   /** Requires facing the target (default true for enemy abilities). */
   needsFacing?: boolean;
@@ -214,6 +244,8 @@ export interface Ability {
   manaCost?: (c: Combat) => number;
   /** A spell: its global cooldown shrinks with casting haste, down to 1 s. */
   hastedGcd?: boolean;
+  /** The global cooldown when a talent changes it (Gift of the Earthmother); `gcd` still says whether there is one. */
+  gcdFor?: (c: Combat) => number;
   /**
    * A visible spell flying from the player (or falling from the sky) to the
    * target; speed in yards per second. `style` is how it looks (src/scene/vfx.ts).
@@ -271,6 +303,10 @@ export interface Spec {
   forms?: { cat?: BeastLookSpec; bear?: BeastLookSpec };
   /** Turn on the attacking dummy by default (tank builds). */
   tank?: boolean;
+  /** A healing spec: a party stands with you and the dummy hurts it (Settings → The dummy attacks your party). */
+  healer?: boolean;
+  /** Default damage per blow on the tank when the dummy attacks your party, after armor. */
+  partyDamage?: number;
   /** Default damage per hit of the attacking dummy, before armor. */
   tankDamage?: number;
   abilities: Ability[];

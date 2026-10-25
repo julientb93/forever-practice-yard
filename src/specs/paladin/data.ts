@@ -46,6 +46,19 @@ export const SHOCK_STATS: Stats = {
   offHand: null,
 };
 
+/** Holy: a caster sheet with Intellect, Spirit and healing power, one-hander and shield; our estimate (no sim publishes a Forever healer sheet). */
+export const HOLY_STATS: Stats = {
+  attackPower: 300,
+  crit: 8,
+  hit: 0,
+  spellCrit: 12.5,   // 3.5 base + Intellect / 60 + gear (Holy Power is added on top)
+  spellPower: 230,
+  mainHand: { name: 'One-handed mace', type: 'mace', min: 70, max: 105, speed: 2.4 },
+  offHand: null,
+  shield: true,
+  health: 2800,
+};
+
 const BASE_MANA = 1512;
 
 export const DATA = {
@@ -90,4 +103,17 @@ export const DATA = {
   improvedSealOfFuryMana: 87,  // 60 at 60, +15 % per attacker level above you (boss +3)
   // Mana
   spirit: 100,                 // provisional: Spirit regen 6.25 + Spi/8 per second outside the five-second rule
+  // Holy healing (client rows, build 1.60.1.70450: base is the row's minimum, max = base x (1 + variance))
+  holyLight: { mana: 660, cast: 2.5, base: 1580, variance: 0.107, coeff: 0.714 },
+  flashOfLight: { mana: 140, cast: 1.5, base: 303, variance: 0.11, coeff: 0.429 },
+  holyShockHeal: { mana: 325, cooldown: 10, base: 320, variance: 0.079, coeff: 0.429, range: 40 },
+  lightsVigilHeal: { mana: 1340, cast: 1.5, cooldown: 6, mark: 30, base: 704, variance: 0.056, coeff: 0.143, range: 40 },
+  layOnHandsHeal: { cooldown: 1200, mana: 550 },
+  blessingOfLight: { mana: 135, holyLight: 400, flashOfLight: 115, duration: 3600 },
+  illumination: { refund: 0.5 },
+  infusionOfLight: { duration: 15, perPoint: 0.5 },
+  healingLight: 0.04,
+  holyPower: { shock: 3, others: 1 },
+  holySpirit: 120,
+  holyMp5: 9,
 };

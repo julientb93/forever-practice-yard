@@ -45,6 +45,18 @@ export const BALANCE_STATS: Stats = {
   offHand: null,
 };
 
+/** Restoration: a caster sheet with Intellect, Spirit and healing power, our estimate (no sim publishes a Forever healer sheet). */
+export const RESTO_STATS: Stats = {
+  attackPower: 200,
+  crit: 5,
+  hit: 0,
+  spellCrit: 10.2,   // 1.8 base + Intellect 204 / 60 + 5 gear (Nature's Majesty is added on top)
+  spellPower: 230,
+  mainHand: { name: 'Staff', type: 'staff', min: 60, max: 90, speed: 3, twoHand: true },
+  offHand: null,
+  health: 2400,
+};
+
 export const DATA = {
   // Cat
   catGcd: 1,
@@ -95,4 +107,15 @@ export const DATA = {
   naturesGrace: { haste: 0.1, gcd: 0.9, duration: 3 },
   eclipse: { maxCharges: 4, duration: 15 },
   spellMiss: 17,
+  // Restoration (client rows, build 1.60.1.70450: base is the row's minimum, max = base x (1 + variance))
+  healingTouch: { mana: 840, cast: 3.5, base: 2332, variance: 0.166, coeff: 1 },
+  rejuvenation: { mana: 360, tick: 194, coeff: 0.2, ticks: 4, period: 3 },
+  regrowth: { mana: 525, cast: 2, base: 1021, variance: 0.109, coeff: 0.286, tick: 142, tickCoeff: 0.071, ticks: 7, period: 3 },
+  swiftmend: { manaPct: 0.2, cooldown: 15 },
+  wildGrowth: { mana: 1050, cooldown: 6, tick: 97, coeff: 0.033, ticks: 7, period: 1 },
+  tranquility: { mana: 925, cooldown: 300, duration: 10, ticks: 5, tick: 285, coeff: 0.067 },
+  naturesSwiftness: { cooldown: 180 },
+  giftOfTheEarthmother: 0.5,
+  restoSpirit: 150,
+  restoMp5: 9,
 };

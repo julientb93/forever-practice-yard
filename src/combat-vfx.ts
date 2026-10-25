@@ -67,6 +67,9 @@ const CAST_STYLE: Record<string, VfxStyle> = {
   evocation: 'arcane', arcaneMissiles: 'arcane', insectSwarm: 'nature',
   curseOfTheElements: 'shadow', baneOfAgony: 'shadow', baneOfDoom: 'shadow', siphonLife: 'shadow', amplifyCurse: 'shadow',
   huntersMark: 'fire', faerieFire: 'arcane',
+  // Heals
+  flashHeal: 'holy', greaterHeal: 'holy', prayerOfHealing: 'holy', bindingHeal: 'holy', holyLight: 'holy', flashOfLight: 'holy',
+  healingTouch: 'nature', regrowth: 'nature', healingWave: 'nature', lesserHealingWave: 'nature', chainHeal: 'nature', tranquility: 'nature',
 };
 /** Casts that are not spells (Slam): no glow. */
 const NO_GLOW = new Set(['slam']);
@@ -97,6 +100,7 @@ const BUFFS: Record<string, number[]> = {
   aspectOfTheHawk: [0xffa040, 0xffe060], aspectOfTheBeast: [0x8ad050, 0xffe060], trueshotAura: [0xffe080, 0xffffff],
   rapidFire: [0xffd040, 0xffffff], bestialWrath: [0xff4040, 0xffa040],
   moonkinForm: [0x9fd8ff, 0xe9a8ff], innervate: [0x6aa0ff, 0xffffff], berserk: [0xff8030, 0xffd060],
+  naturesSwiftness: [0x9af060, 0xffffff], waterShield: [0x5ab0ff, 0xd0f0ff], manaTideTotem: [0x5ab0ff, 0xffffff], healingStreamTotem: [0x9af060, 0x5ab0ff],
   frenziedRegeneration: [0x8ae040, 0xffffff], druidEnrage: [0xff3020, 0xffa040], dash: [0xffffff, 0xd0f0ff],
   manaPotion: [0x4a8aff, 0x9ad0ff], ragePotion: [0xff3020, 0xffa040], thistleTea: [0x8ae040, 0xffe060],
 };
@@ -110,6 +114,7 @@ const GLOWS: Record<string, number[]> = {
   deathWish: [0xc01010, 0xff3020], berserkerRage: [0xff6020], shieldWall: [0x9ad0ff], lastStand: [0x80ff80],
   arcanePower: [0xff8cff, 0xffffff], combustion: [0xff7a18, 0xffd060], presenceOfMind: [0xc890ff],
   rapidFire: [0xffd040], berserk: [0xff8030], innervate: [0x6aa0ff], divineFavor: [0xffe680], powerInfusion: [0xffe680],
+  naturesSwiftness: [0x9af060], infusionOfLight: [0xffe680, 0xffffff],
   shadowform: [0x6a20b0, 0x2a0a40, 0x9a40f0],
 };
 const SEAL_SPARKS: Record<string, number[]> = {
@@ -176,6 +181,13 @@ export function wireVfx(combat: Combat, vfx: Vfx, at: FxAnchors): { update(dt: n
   combat.on('damage', (h) => {
     hits.push(h);
     if (!h.periodic) learned.set(h.source, h.school);
+  });
+
+  // A heal lands: light on the party member (gold for Holy, green for Nature); a tick is a small one.
+  combat.on('heal', (h) => {
+    const p = h.target === combat.self ? playerChest() : chestPoint(h.target);
+    if (!p || h.effective <= 0 && !h.shield) return;
+    vfx.impact(p, SCHOOL_STYLE[h.school], { crit: h.crit, small: !!h.periodic || !!h.shield });
   });
 
   combat.on('ability', ({ id }) => {

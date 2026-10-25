@@ -263,3 +263,4 @@ export const shamanTank: Spec = specFor('tank', {
   suggest: tankSuggest,
   review: tankReview,
 });
+export { shamanResto } from './resto';

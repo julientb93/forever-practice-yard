@@ -3,7 +3,7 @@
 // Protection 16, Retribution 17. See research/paladin_forever.md → Talents and Builds.
 import type { Binding, Stats } from '../../engine/types';
 import { decodeTalents, talentSplit, talentSummary } from '../common';
-import { PROT_STATS, RET_STATS, SHOCK_STATS } from './data';
+import { HOLY_STATS, PROT_STATS, RET_STATS, SHOCK_STATS } from './data';
 
 const TREES = [
   ['divineStrength', 'divineIntellect', 'healingLight', 'spiritualFocus', 'improvedSeals', 'unyieldingFaith', 'voiceOfTruth',
@@ -42,7 +42,7 @@ const NEW_IN_FOREVER = new Set<TalentKey>(['improvedSeals', 'voiceOfTruth', 'rev
   'divinePrecision', 'consecratedGround', 'lightsVigil', 'improvedSealOfFury', 'sacredDuty', 'swiftJudgement', 'templarsBulwark',
   'ironCreed', 'holyConduit', 'sanctifiedJudgement', 'sacredArbiter', 'championOfTheLight', 'instrumentOfLaw', 'twistOfLight']);
 
-export type PaladinSpec = 'ret' | 'prot' | 'shock';
+export type PaladinSpec = 'ret' | 'prot' | 'shock' | 'holy';
 
 export interface Build {
   id: string;
@@ -66,9 +66,16 @@ const PROT_BAR = bar(['holyStrike', 'judgement', 'holyShield', 'consecration', '
 const SHOCK_BAR = bar(['holyShock', 'holyStrike', 'judgement', 'sealOfCommand', 'divineFavor', 'consecration', 'exorcism', 'hammerOfWrath',
   'attack', 'sealOfRighteousness', 'manaPotion', 'layOnHands', 'lightsVigil']);
 
+const HOLY_BAR = bar(['flashOfLight', 'holyLight', 'holyShock', 'lightsVigil', 'divineFavor', 'blessingOfLight', 'layOnHands', 'manaPotion',
+  null, null, null, null, null, null, null, null]);
+
 const GS = 'gunba/wow-forever-sim';
 const FS = 'foreversim';
 export const BUILDS: Build[] = [
+  // Healer: foreversim's Holy test build with Voice of Truth at its 1-point maximum and the spare points in Reverence (our reading).
+  { id: 'holy', spec: 'holy', name: 'Holy', talentString: '55320013025101051-503250002', source: `${FS} test build, re-pointed`, stats: HOLY_STATS, bar: HOLY_BAR },
+  // SixtySim's bench (sixtysim.com, 19 Oct 2026), the same 38/13/0 as foreversim's "Holy healer" preset.
+  { id: 'holy-sixtysim', spec: 'holy', name: 'Holy 38/13', talentString: '25320213225131051-50323', source: 'SixtySim bench (foreversim preset)', stats: HOLY_STATS, bar: HOLY_BAR },
   { id: 'ret', spec: 'ret', name: 'Retribution', talentString: '55003-232-05225231001330301', source: GS, stats: RET_STATS, bar: RET_BAR },
   { id: 'ret-physical', spec: 'ret', name: 'Physical Retribution', talentString: '52003003-232-05225031101330311', source: GS, stats: RET_STATS, bar: RET_BAR },
   { id: 'ret-fs', spec: 'ret', name: 'Retribution', talentString: '550030022001--05225231001330321', source: FS, stats: RET_STATS, bar: RET_BAR },

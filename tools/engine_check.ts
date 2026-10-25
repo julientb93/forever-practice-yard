@@ -3,13 +3,14 @@
 // Usage: npm test
 import { Combat } from '../src/engine/combat';
 import type { Spec, Unit } from '../src/engine/types';
-import { druidBalance, druidBear, druidCat } from '../src/specs/druid';
+import { druidBalance, druidBear, druidCat, druidResto } from '../src/specs/druid';
 import { hunterBm, hunterMm, hunterSv } from '../src/specs/hunter';
 import { mageArcane, mageFire, mageFrost } from '../src/specs/mage';
-import { paladinProt, paladinRet, paladinShock } from '../src/specs/paladin';
-import { priestShadow, priestSmite } from '../src/specs/priest';
+import { paladinHoly, paladinProt, paladinRet, paladinShock } from '../src/specs/paladin';
+import { priestDisc, priestHoly, priestShadow, priestSmite } from '../src/specs/priest';
 import { rogue } from '../src/specs/rogue';
-import { shamanElemental, shamanEnhancement, shamanTank } from '../src/specs/shaman';
+import { shamanElemental, shamanEnhancement, shamanResto, shamanTank } from '../src/specs/shaman';
+import { defaultParty } from '../src/specs/healing';
 import { warlockAffliction, warlockDemonology, warlockDestruction } from '../src/specs/warlock';
 import { warrior } from '../src/specs/warrior';
 import { SPECS } from '../src/specs';
@@ -949,6 +950,83 @@ for (const sp of [shamanElemental, shamanEnhancement, shamanTank]) {
   if (!(fury.c.dps() > base.c.dps())) failures.push('Windfury Totem did not raise Fury DPS');
   const cat = play(druidCat, { build: 'cat', raid: ['windfury', 'judgementOfWisdom'] });
   if (!((cat.c.counters.windfury ?? 0) > 20)) failures.push('Windfury Totem barely procced for a cat');
+}
+
+// Healers: the dummy hurts a party for 3 minutes; a player who follows the cue (target, then the glow) keeps it alive
+// without overhealing it all, and every build uses its own spells.
+console.log('Healers (150 s, the default spiky blows on the tank, following the cue):');
+{
+  const MUST_HEAL: Record<string, string[]> = {
+    'priest-holy': ['flashHeal', 'greaterHeal', 'renew', 'prayerOfMending'],
+    'priest-disc': ['powerWordShield', 'penance', 'flashHeal', 'renew'],
+    'druid-resto': ['rejuvenation', 'regrowth', 'healingTouch'],
+    'shaman-resto': ['healingWave', 'lesserHealingWave', 'riptide', 'waterShield'],
+    'paladin-holy': ['flashOfLight', 'holyLight', 'holyShock', 'blessingOfLight'],
+  };
+  for (const sp of [priestHoly, priestDisc, druidResto, shamanResto, paladinHoly]) {
+    for (const b of sp.builds ?? []) {
+      let seed = 8675309;
+      const c = new Combat(sp, { ...(sp.defaultOptions ?? {}), build: b.id, ...(b.options ?? {}) });
+      c.stats = structuredClone(b.stats);
+      c.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+      const dummy: Unit = { id: 0, name: 'Dummy', level: 63, health: 1e9, maxHealth: 1e9, armor: 3731, auras: new Map(), x: 0, z: 0, facing: 0, radius: 0.5 };
+      c.targets = [dummy];
+      c.allies = defaultParty(6500, 3800);
+      c.player.x = 0; c.player.z = -9; c.player.facing = 0;
+      c.raid = new Set(sp.defaultRaid ?? []);
+      c.partyDamage = { on: true, profile: 'spiky', damage: sp.partyDamage ?? 600, speed: 2.5, locked: false };
+      c.reset();
+      c.enterCombat();
+      const used: Record<string, number> = {};
+      const errors: string[] = [];
+      c.on('ability', ({ id }) => { used[id] = (used[id] ?? 0) + 1; });
+      c.on('error', (e) => errors.push(e));
+      const dt = 0.05;
+      for (let t = 0; t < 150; t += dt) {
+        if (!c.casting && !c.channeling) {
+          // The cue names the target: the player targets it, then presses the glow.
+          const cue = sp.cue?.(c);
+          const id = sp.suggest?.(c);
+          if (cue && id) {
+            const name = cue.text.replace(/^Target /, '').split(/[:(]/)[0].trim();
+            const u = name === 'You' ? c.self : c.allies.find((x) => x.name === name) ?? null;
+            if (u) c.target = u;
+            c.use(id);
+          }
+        }
+        c.update(dt);
+      }
+      const k = c.counters;
+      const over = (k.overheal ?? 0) / Math.max(1, (k.healing ?? 0) + (k.overheal ?? 0));
+      const review = (sp.review?.(c) ?? []).slice(0, 4).map((x) => `${x.label}: ${x.value}`).join(' | ');
+      const missing = MUST_HEAL[sp.id].filter((id) => !used[id] && (c.ability(id)?.usable?.(c) ?? true));
+      console.log(`  ${(sp.id + ' / ' + b.id).padEnd(32)} healed ${Math.round(k.healing ?? 0).toString().padStart(6)}, overheal ${Math.round(over * 100)}%, deaths ${k.deaths ?? 0}, mana ${Math.round(c.player.resource)}  ${review}`);
+      if (!((k.healing ?? 0) > 20000)) failures.push(`${sp.id}/${b.id}: healed only ${Math.round(k.healing ?? 0)} in 150 s`);
+      if (!(over < 0.6)) failures.push(`${sp.id}/${b.id}: ${Math.round(over * 100)}% overhealing while following the cue`);
+      if ((k.deaths ?? 0) > 1) failures.push(`${sp.id}/${b.id}: ${k.deaths} deaths in the party`);
+      if (missing.length) failures.push(`${sp.id}/${b.id} never used ${missing.join(', ')}`);
+      const unexpected = errors.filter((e) => e !== 'Ability is not ready yet' && !e.startsWith('Not enough'));
+      if (unexpected.length) failures.push(`${sp.id}/${b.id}: errors ${[...new Set(unexpected)].join(', ')}`);
+    }
+  }
+  // Heals land on your target when it is a party member, on you otherwise; overhealing is what the target was not missing.
+  const c = new Combat(priestHoly, { ...(priestHoly.defaultOptions ?? {}), build: 'holy' });
+  c.allies = defaultParty(6500, 3800);
+  c.reset();
+  c.enterCombat();
+  const tank = c.allies[0];
+  tank.health = 6000;
+  c.target = tank;
+  c.random = () => 0.999;
+  c.use('renew');
+  if (!c.aura(tank, 'renew')) failures.push('Renew did not land on the targeted tank');
+  c.update(3.01);
+  if (!(tank.health > 6000 && tank.health <= 6500)) failures.push(`a Renew tick left the tank at ${tank.health}`);
+  const before = c.counters.overheal ?? 0;
+  c.target = c.targets[0] ?? null;
+  c.use('flashHeal');
+  c.update(1.6);
+  if (c.player.health !== c.player.maxHealth || (c.counters.overheal ?? 0) <= before) failures.push('Flash Heal with no party target did not land on you as overhealing');
 }
 
 // The talent trees drawn in the UI (gunba's layout) read every build's talent string the same way the specs do.

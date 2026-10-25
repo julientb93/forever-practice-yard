@@ -101,7 +101,7 @@ third setting picks what a melee swing does to Auto Shot: Classic keeps the two 
 beta restarts Auto Shot (what it does today, reported as a bug), Wrath links them both ways. The review counts weaves, the Auto Shot time they cost and
 the net damage. Neither sim models weaving, and with the beta rule it gains little.
 
-The **Priest** comes as two damage specs (sources in [`research/priest_forever.md`](research/priest_forever.md)); pure healers are out of scope:
+The **Priest** comes as two damage specs (sources in [`research/priest_forever.md`](research/priest_forever.md)) and two healers (below):
 
 - **Shadow** (`?class=priest-shadow`): Shadowform (+10% Shadow damage, half-cost Shadow spells, 2.0x Shadow crits)
   and personal Shadow Weaving stacks (+2% of your Shadow damage, 5 stacks). Mind Flay is a channel with one hit
@@ -163,6 +163,40 @@ global cooldown), Earth, Flame and Frost Shock share one cooldown, and Clearcast
 
 Totems stand where you dropped them (a carved post per element, with a flame, stones, wings or an orb on top); Searing
 Totem's bolts and Fire Nova's ring start from your Fire totem.
+
+**Healers** come as five specs, the first ones in a yard that otherwise practises damage (sources in
+[`research/healing_forever.md`](research/healing_forever.md): every number from the Forever beta client rows, build
+1.60.1.70450, checked against Wowhead Forever, with a confidence label; no sim publishes a Forever healer list or sheet yet,
+so the builds, priority lists and stats are marked as ours; SixtySim's tuned bench builds are offered too). Your party stands with you: a tank in front of the dummy
+(6,500 health), a rogue beside them, a mage and a hunter at range (3,800 each), and the dummy hurts them (Settings → "The dummy
+attacks your party"): steady blows on the tank, spiky blows with crits and crushing blows, or raid-style damage with splashes and
+a blast on everyone every 15 sec. The blows start with your first heal or the pull countdown. Click a party member in the party
+frame (or their dummy), or press F1 to F5 (F1 is you), to target them; a heal with no party member targeted lands on you, as in
+WoW. Heals never miss and crit for 1.5x; what the target was not missing is overhealing. There is no healing meter, as there is
+no DPS meter: the panel counts heals and crits per spell, overhealing, heals on a full target, the time the tank spent under 40%,
+deaths, the time your Spirit was regenerating and the time you had no mana for your main heal. The yellow glow names the spell
+and the cue above the bar names whom to heal. One healer sustains about 200 healing per second over minutes before the mana runs
+out, so the default blows sit a little above that: raise them for a sprint, lower them to learn the rhythm.
+
+- **Priest Holy** (`?class=priest-holy`): Flash Heal, Greater Heal (2.5 sec with Divine Fury), Renew, Prayer of Mending (31
+  points: it heals the next five party members the dummy hurts), Binding Heal, Prayer of Healing, Holy Nova as a heal, Power
+  Word: Shield, Inner Focus, Desperate Prayer; Spiritual Guidance turns 25% of your Spirit into healing power, Litany of Light
+  gives mana back when you alternate heals.
+- **Priest Discipline** (`?class=priest-disc`): Power Word: Shield with Soul Warding (no cooldown) and Renewed Hope (more crit
+  on a shielded target), Penance as three healing bolts, Divine Aegis (crit heals shield the target), Power Infusion. foreversim's
+  Discipline preset is the build.
+- **Druid Restoration** (`?class=druid-resto`): Rejuvenation and Regrowth kept on the tank, Swiftmend to spend them, Healing
+  Touch (instant with Nature's Swiftness), Wild Growth (31 points) for the party, Tranquility, Innervate; Gift of the Earthmother
+  puts Rejuvenation, Swiftmend and Wild Growth on a 1.0 sec global cooldown.
+- **Shaman Restoration** (`?class=shaman-resto`): Healing Wave, Lesser Healing Wave, Chain Heal (rank 3 is the last at 60; 25%
+  stronger on your Riptide target), Riptide (31 points), Water Shield (mana on your crits), Mana Tide Totem, Healing Stream and
+  Mana Spring in the Water slot, Nature's Swiftness.
+- **Paladin Holy** (`?class=paladin-holy`): Flash of Light, Holy Light (faster after a crit with Infusion of Light), Holy Shock as
+  a heal, Light's Vigil (31 points: the next Holy Shock on its target triggers no cooldown and heals their party), Divine Favor,
+  Illumination (half the mana back on crits), Blessing of Light on the tank, Lay on Hands.
+
+The Season of Discovery rows that sit in the client (Lifebloom, Nourish, Circle of Healing, Pain Suppression, Earth Shield, Sacred
+Shield) are not taught by any trainer or talent on Wowhead Forever, so they are left out.
 
 Channeled spells are part of the engine: cost and GCD at the start, ticks over time, interrupted by moving and
 clipped by the next spell.

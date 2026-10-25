@@ -260,3 +260,4 @@ export const paladinShock: Spec = specFor('shock', {
   suggest: shockSuggest,
   review: shockReview,
 });
+export { paladinHoly } from './holy';

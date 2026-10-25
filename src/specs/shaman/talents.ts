@@ -2,11 +2,11 @@
 // generated from research/shaman_forever.json). See research/shaman_forever.md → Builds.
 import type { Binding, Stats } from '../../engine/types';
 import { decodeTalents, talentSplit, talentSummary } from '../common';
-import { ELEMENTAL_STATS, ENHANCEMENT_STATS, OFFTANK_STATS, STORMCALLER_STATS } from './data';
+import { ELEMENTAL_STATS, ENHANCEMENT_STATS, OFFTANK_STATS, RESTO_STATS, STORMCALLER_STATS } from './data';
 import { NAMES, NEW_IN_FOREVER, TREES, TREE_NAMES, type Talents } from './talents.gen';
 
 export type { Talents };
-export type ShamanSpec = 'elemental' | 'enhancement' | 'tank';
+export type ShamanSpec = 'elemental' | 'enhancement' | 'tank' | 'resto';
 
 export interface Build {
   id: string;
@@ -31,6 +31,9 @@ const ENHANCEMENT_BAR = bar(['stormstrike', 'earthShock', 'flameShock', 'fireNov
 const TANK_BAR = bar(['stormstrike', 'earthShock', 'flameShock', 'lightningShield', 'lightningBolt', 'searingTotem', 'stoneskinTotem', 'strengthOfEarthTotem',
   'rageOfTheFarseer', 'graceOfAirTotem', 'manaSpringTotem', 'manaPotion', 'fireNova', 'magmaTotem', 'frostShock']);
 
+const RESTO_BAR = bar(['healingWave', 'lesserHealingWave', 'chainHeal', 'riptide', 'naturesSwiftness', 'manaTideTotem', 'healingStreamTotem', 'manaSpringTotem',
+  'waterShield', 'manaPotion', null, null, null, null, null, null]);
+
 const GS = 'gunba/wow-forever-sim';
 const FS = 'foreversim';
 /** foreversim's builds, still on the old tree: the same points in the Oct 15 tree (Call of Thunder's points moved). */
@@ -47,6 +50,12 @@ export const BUILDS: Build[] = [
   { id: 'enhancement-60', spec: 'enhancement', name: 'Enhancement "Level 60"', talentString: '5505031-053030031005112251', source: `${GS} and ${FS}`, stats: ENHANCEMENT_STATS, bar: ENHANCEMENT_BAR, options: { mana: 2623 } },
   { id: 'enhancement-fs', spec: 'enhancement', name: 'Enhancement', talentString: '2532031-055030030205112251', source: FS_REENCODED, stats: ENHANCEMENT_STATS, bar: ENHANCEMENT_BAR, options: { mana: 2623 } },
   { id: 'tank', spec: 'tank', name: 'Off-tank (experimental)', talentString: '05350013-050230031355112201', source: OURS, stats: OFFTANK_STATS, bar: TANK_BAR, options: { mana: 2900 }, tank: true },
+  // Healers: our proposals (foreversim's Restoration test string is on an older tree and does not decode).
+  { id: 'resto', spec: 'resto', name: 'Restoration', talentString: '-055001-5530203015513151', source: OURS, stats: RESTO_STATS, bar: RESTO_BAR, options: { mana: 4376 } },
+  { id: 'resto-elemental', spec: 'resto', name: 'Restoration, Elemental dip', talentString: '5500001--5530203015513151', source: OURS, stats: RESTO_STATS, bar: RESTO_BAR, options: { mana: 4376 } },
+  // SixtySim's tuned benches (sixtysim.com, 19 Oct 2026): one target, and a party of five.
+  { id: 'resto-sixtysim', spec: 'resto', name: 'Restoration, one target', talentString: '1-055-5530400215503151', source: 'SixtySim bench, 1 min, tuned', stats: RESTO_STATS, bar: RESTO_BAR, options: { mana: 4376 } },
+  { id: 'resto-sixtysim-party', spec: 'resto', name: 'Restoration, party', talentString: '1-055001-5530300315503051', source: 'SixtySim bench, 1 min, tuned', stats: RESTO_STATS, bar: RESTO_BAR, options: { mana: 4376 } },
 ];
 
 export const buildsFor = (spec: ShamanSpec) => BUILDS.filter((b) => b.spec === spec);

@@ -97,6 +97,8 @@ function shadowReview(c: Combat): Row[] {
   return rows;
 }
 
+export { priestDisc, priestHoly } from './healing';
+
 export const priestShadow: Spec = specFor('shadow', {
   id: 'priest-shadow',
   specName: 'Shadow',
